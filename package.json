@@ -1,0 +1,84 @@
+{
+  "name": "ip-insight",
+  "version": "0.1.0",
+  "description": "IP Insight - IP 综合检测助手（多网站检测聚合 + 数据提取 + AI 综合分析）",
+  "main": "./out/main/index.js",
+  "author": "Xue Ze (薛泽)",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
+    "dist": "electron-vite build && electron-builder --win && node scripts/finalize-release.mjs",
+    "dist:portable": "electron-vite build && electron-builder --win zip && node scripts/finalize-release.mjs",
+    "preview:web": "node scripts/preview-web.mjs"
+  },
+  "build": {
+    "appId": "com.ipinsight.app",
+    "productName": "IP-Insight",
+    "copyright": "Copyright © 2026 薛泽（Xue Ze）· 网鉴 IP Insight",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/Logo.png",
+        "to": "resources/Logo.png"
+      }
+    ],
+    "win": {
+      "icon": "resources/Logo.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "IP-Insight"
+    }
+  },
+  "dependencies": {
+    "@cloudflare/speedtest": "^1.14.1",
+    "@fontsource/inter": "^5.3.0",
+    "lucide-react": "^1.52.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xueze-ai/IP-Insight.git"
+  }
+}
