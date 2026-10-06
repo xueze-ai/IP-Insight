@@ -4,7 +4,8 @@ import type {
   HistoryRecord,
   NormalizedIPResult,
   ReachProbeResult,
-  ServiceStatusFeed
+  ServiceStatusFeed,
+  UpdateStatus
 } from '@shared/types'
 
 // =============================================================
@@ -311,11 +312,13 @@ let settings: AppSettings = {
     maxTokens: 8192
   },
   detection: { timeoutSec: 40, autoRunOnStart: false, parallel: false },
-  privacy: { historyEnabled: true, historyRetentionDays: 30, clearHistoryOnExit: false }
+  privacy: { historyEnabled: true, historyRetentionDays: 30, clearHistoryOnExit: false },
+  updates: { autoCheck: true }
 }
 
 let history: HistoryRecord[] = demoHistory()
 const logListeners = new Set<(m: string) => void>()
+const updateListeners = new Set<(s: UpdateStatus) => void>()
 const chunkListeners = new Set<(d: string) => void>()
 const stageListeners = new Set<(s: string) => void>()
 
@@ -425,6 +428,16 @@ export function install(): void {
     onDetectLog: (cb: (m: string) => void) => {
       logListeners.add(cb)
       return () => logListeners.delete(cb)
+    },
+    // Demo 模式无真实更新通道：给出明确状态，不转圈
+    checkForUpdates: async () => {
+      updateListeners.forEach((l) => l({ state: 'up-to-date', version: '0.2.0-demo' }))
+      return { ok: true }
+    },
+    quitAndInstall: async () => ({ ok: true }),
+    onUpdateStatus: (cb: (s: UpdateStatus) => void) => {
+      updateListeners.add(cb)
+      return () => updateListeners.delete(cb)
     }
   }
   ;(window as unknown as { ipInsight: typeof api }).ipInsight = api

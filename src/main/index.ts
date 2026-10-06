@@ -19,6 +19,7 @@ import {
   clearHistory
 } from './history'
 import { exportToFile, defaultReportName } from './exportReport'
+import { initAutoUpdate, checkForUpdates, quitAndInstall } from './autoUpdate'
 import { chatStream } from './ai/client'
 import { buildMessages } from './ai/prompt'
 import { AI_PROVIDER_META } from '@shared/aiProviders'
@@ -878,6 +879,16 @@ app.whenReady().then(async () => {
   ipcMain.handle('settings:reset', async () => ({ ok: true, settings: resetSettings() }))
   ipcMain.handle('app:version', async () => app.getVersion())
 
+  // ------------ 自动更新 ------------
+  ipcMain.handle('update:check', async () => {
+    await checkForUpdates()
+    return { ok: true }
+  })
+  ipcMain.handle('update:quitAndInstall', async () => {
+    quitAndInstall()
+    return { ok: true }
+  })
+
   // ------------ AI ------------
   // 解析提供商配置：内置（含 Ollama 等）或用户自定义
   const resolveProvider = (
@@ -1066,6 +1077,7 @@ app.whenReady().then(async () => {
   })
 
   createWindow()
+  initAutoUpdate(() => mainWindow)
   void setupUiVerify()
   void setupNetworkVerify()
   void setupRiskVerify()

@@ -1,6 +1,6 @@
 {
   "name": "ip-insight",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "IP Insight - IP 综合检测助手（多网站检测聚合 + 数据提取 + AI 综合分析）",
   "main": "./out/main/index.js",
   "author": "Xue Ze (薛泽)",
@@ -57,11 +57,17 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "IP-Insight"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "xueze-ai",
+      "repo": "IP-Insight"
     }
   },
   "dependencies": {
     "@cloudflare/speedtest": "^1.14.1",
     "@fontsource/inter": "^5.3.0",
+    "electron-updater": "^6.6.2",
     "lucide-react": "^1.52.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

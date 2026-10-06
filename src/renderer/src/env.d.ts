@@ -14,7 +14,8 @@ import type {
   NormalizedIPResult,
   ReachabilityResponse,
   ServiceStatusResponse,
-  SettingsResponse
+  SettingsResponse,
+  UpdateStatus
 } from '@shared/types'
 
 // 渲染层全局声明：与 preload 暴露的 API 保持一致
@@ -44,6 +45,9 @@ export interface IPInsightAPI {
   revealFile: (path: string) => Promise<{ ok: boolean }>
   openSource: (url: string) => Promise<boolean>
   onDetectLog: (cb: (message: string) => void) => () => void
+  checkForUpdates: () => Promise<{ ok: boolean }>
+  quitAndInstall: () => Promise<{ ok: boolean }>
+  onUpdateStatus: (cb: (status: UpdateStatus) => void) => () => void
 }
 
 declare global {

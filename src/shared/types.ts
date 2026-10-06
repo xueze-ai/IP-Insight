@@ -271,6 +271,26 @@ export interface AppSettings {
     historyRetentionDays: number
     clearHistoryOnExit: boolean
   }
+  updates: {
+    autoCheck: boolean
+  }
+}
+
+// ------------ 自动更新（electron-updater + GitHub Releases） ------------
+export type UpdateState =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'downloaded'
+  | 'up-to-date'
+  | 'error'
+
+export interface UpdateStatus {
+  state: UpdateState
+  version?: string
+  percent?: number
+  message?: string
 }
 
 export interface SettingsResponse {

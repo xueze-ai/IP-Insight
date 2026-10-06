@@ -35,7 +35,8 @@ export function defaultSettings(): AppSettings {
       maxTokens: 8192
     },
     detection: { timeoutSec: 40, autoRunOnStart: false, parallel: false },
-    privacy: { historyEnabled: true, historyRetentionDays: 30, clearHistoryOnExit: false }
+    privacy: { historyEnabled: true, historyRetentionDays: 30, clearHistoryOnExit: false },
+    updates: { autoCheck: true }
   }
 }
 

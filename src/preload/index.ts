@@ -15,7 +15,8 @@ import type {
   NormalizedIPResult,
   ReachabilityResponse,
   ServiceStatusResponse,
-  SettingsResponse
+  SettingsResponse,
+  UpdateStatus
 } from '@shared/types'
 
 // =============================================================
@@ -106,6 +107,17 @@ const api = {
     const listener = (_event: unknown, message: string): void => cb(message)
     ipcRenderer.on('detect:log', listener)
     return () => ipcRenderer.removeListener('detect:log', listener)
+  },
+
+  // 自动更新：手动检查 / 下载完成后重启安装 / 订阅更新状态
+  checkForUpdates: (): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('update:check'),
+  quitAndInstall: (): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('update:quitAndInstall'),
+  onUpdateStatus: (cb: (status: UpdateStatus) => void): (() => void) => {
+    const listener = (_event: unknown, status: UpdateStatus): void => cb(status)
+    ipcRenderer.on('update:status', listener)
+    return () => ipcRenderer.removeListener('update:status', listener)
   }
 }
 

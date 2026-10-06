@@ -82,8 +82,9 @@ NormalizedIPResult 统一数据模型（src/shared/types.ts）
 到 Releases 下载：
 - `IP-Insight-<版本>-Setup.exe`：NSIS 安装包
 - `IP-Insight-Portable.zip`：便携版，解压后双击 `IP-Insight.exe`
+- `SHA256SUMS.txt`：校验文件，用 `certutil -hashfile <文件名> SHA256`（Windows）比对哈希值，确认下载完整未被篡改
 
-无需安装 Node / Python 等任何开发环境。未签名应用首次运行如出现 SmartScreen 提示：「更多信息 → 仍要运行」。
+无需安装 Node / Python 等任何开发环境。未签名应用首次运行如出现 SmartScreen 提示：「更多信息 → 仍要运行」。免费的代码签名路线见 `docs/code-signing.md`，也可用 `winget install xueze-ai.IP-Insight` 安装（见 `winget/README.md`）。
 
 ### 方式 B：源码自编译
 ```bash
@@ -105,9 +106,10 @@ npm install && npm run build && npm run preview:web
 ## 日常使用
 
 1. 首页「开始综合检测」（约 30–60 秒；可设置并行 / 开机自测）
-2. 各页面查看：IP 信息 / 网络质量 / 风险分析 / 浏览器指纹
-3. 设置 → AI 提供商 填写 Key（或本地 Ollama 免 Key）→「测试连接」
-4. AI 分析页生成流式报告；检测完成页或历史记录「导出报告」
+2. 软件更新：启动后自动检查 GitHub Releases，有新版本后台下载，下载完成后在「设置 → 关于 → 软件更新」点「重启并更新」（也可下次退出时自动安装）
+3. 各页面查看：IP 信息 / 网络质量 / 风险分析 / 浏览器指纹
+4. 设置 → AI 提供商 填写 Key（或本地 Ollama 免 Key）→「测试连接」
+5. AI 分析页生成流式报告；检测完成页或历史记录「导出报告」
 
 ## AI 配置（含 Ollama）
 
@@ -192,6 +194,12 @@ Ollama 用户：本机 `ollama serve` 并 `ollama pull qwen2.5:7b` 后，选择 
 分发或二次发布时请同时保留软件内「关于」页的作者与仓库信息。
 
 ## 更新日志
+
+### 0.2.0
+
+- **自动更新**：启动后自动检查 GitHub Releases，有新版本后台静默下载，下载完成后提示重启更新（设置 → 关于 → 软件更新，可开关、可手动检查）
+- **发布产物附 SHA256SUMS.txt**：可在下载后校验安装包完整性
+- 新增 `PRIVACY.md` 隐私政策、`docs/code-signing.md` 免费代码签名路线图、`winget/` WinGet 上架文件
 
 ### 0.1.0（2026-10-05）
 首个完整版本：四源 Adapter 与统一数据模型、多源交叉分析、九页 Material 3 中文 UI、本机测速 / 全球节点 / 服务可用性 / 可达性、浏览器指纹五组分类、AI 流式分析（9 提供商 + 自定义 + Ollama）、设置持久化、历史记录、四格式报告导出、NSIS 安装包与便携包、浏览器 Demo 预览模式。

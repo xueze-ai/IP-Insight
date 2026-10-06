@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.6.0.schema.json
+PackageIdentifier: xueze-ai.IP-Insight
+PackageVersion: 0.2.0
+PackageLocale: en-US
+Publisher: Xue Ze
+PackageName: IP Insight
+License: MIT
+ShortDescription: See your egress IP clearly — multi-source IP checks with AI analysis
+Description: IP Insight checks your public IP against multiple independent detection sources at once, normalizes the results into one data model, cross-validates them across sources, and produces a readable AI-analyzed report. No built-in IP database — every conclusion comes from real-time detection. MIT licensed, free and open source.
+ManifestType: locale
+ManifestVersion: 1.6.0

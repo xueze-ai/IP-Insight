@@ -27,7 +27,8 @@ import type { JSX, ReactNode } from 'react'
 import type {
   AiProviderConfig,
   AiTestResponse,
-  AppSettings
+  AppSettings,
+  UpdateStatus
 } from '@shared/types'
 import { AI_PROVIDER_META } from '@shared/aiProviders'
 import { useTheme } from '../hooks/useTheme'
@@ -128,6 +129,25 @@ function Row({
   )
 }
 
+function updateStatusText(s: UpdateStatus | null): string {
+  if (!s || s.state === 'idle')
+    return '从 GitHub Releases 检查新版本；发现新版本会在后台自动下载。'
+  switch (s.state) {
+    case 'checking':
+      return '正在检查更新…'
+    case 'available':
+      return `发现新版本 v${s.version ?? ''}，正在后台下载…`
+    case 'downloading':
+      return `正在下载新版本…${s.percent ?? 0}%`
+    case 'downloaded':
+      return `新版本 v${s.version ?? ''} 已下载完成，可重启更新。`
+    case 'up-to-date':
+      return '已是最新版本。'
+    case 'error':
+      return `检查失败：${s.message ?? '未知错误'}`
+  }
+}
+
 export function Settings({
   initialSection = 'appearance'
 }: {
@@ -141,6 +161,7 @@ export function Settings({
     Record<string, { loading?: boolean; result?: AiTestResponse }>
   >({})
   const [version, setVersion] = useState('')
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
   const { theme, setTheme } = useTheme()
 
   useEffect(() => {
@@ -161,8 +182,12 @@ export function Settings({
         if (on) setVersion(v)
       })
       .catch(() => undefined)
+    const offUpdate = window.ipInsight.onUpdateStatus((s) => {
+      if (on) setUpdateStatus(s)
+    })
     return () => {
       on = false
+      offUpdate()
     }
   }, [])
 
@@ -767,6 +792,46 @@ export function Settings({
                     <div className="kv-val">所有数据来自上述数据源与本机测量的实时检测；不内置 IP 数据库</div>
                   </div>
                 </div>
+              </div>
+              <div className="card" style={{ marginTop: 16 }}>
+                <div className="card-eyebrow" style={{ marginBottom: 8 }}>软件更新</div>
+                <Row
+                  title="启动时自动检查更新"
+                  desc="打开软件约 8 秒后在后台检查 GitHub Releases；发现新版本自动下载，下载完成后由你决定是否重启更新（也可下次退出时自动安装）。"
+                >
+                  <Switch
+                    checked={local.updates.autoCheck}
+                    label="启动时自动检查更新"
+                    onChange={(v) =>
+                      commit({ ...local, updates: { autoCheck: v } })
+                    }
+                  />
+                </Row>
+                <Row title="检查更新" desc={updateStatusText(updateStatus)}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      disabled={
+                        updateStatus?.state === 'checking' ||
+                        updateStatus?.state === 'downloading'
+                      }
+                      onClick={() => {
+                        setUpdateStatus({ state: 'checking' })
+                        window.ipInsight.checkForUpdates().catch(() => undefined)
+                      }}
+                    >
+                      <RefreshCw size={14} /> 检查更新
+                    </button>
+                    {updateStatus?.state === 'downloaded' && (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => void window.ipInsight.quitAndInstall()}
+                      >
+                        重启并更新
+                      </button>
+                    )}
+                  </div>
+                </Row>
               </div>
               <div className="card" style={{ marginTop: 16 }}>
                 <div className="card-eyebrow" style={{ marginBottom: 8 }}>数据源</div>
