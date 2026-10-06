@@ -20,11 +20,13 @@ import {
 } from './history'
 import { exportToFile, defaultReportName } from './exportReport'
 import { initAutoUpdate, checkForUpdates, quitAndInstall } from './autoUpdate'
+import { mt } from './i18n'
 import { chatStream } from './ai/client'
-import { buildMessages } from './ai/prompt'
+import { buildMessages, buildAskMessages } from './ai/prompt'
 import { AI_PROVIDER_META } from '@shared/aiProviders'
 import type {
   AiAnalyzeRequest,
+  AiAskRequest,
   AiProviderConfig,
   AppSettings,
   DeepPartial,
@@ -893,12 +895,13 @@ app.whenReady().then(async () => {
   // 解析提供商配置：内置（含 Ollama 等）或用户自定义
   const resolveProvider = (
     id: string
-  ): { name: string; cfg: AiProviderConfig; needsKey: boolean } | null => {
+  ): { name: string; nameEn?: string; cfg: AiProviderConfig; needsKey: boolean } | null => {
     const s = getSettings()
     const meta = AI_PROVIDER_META.find((m) => m.id === id)
     if (meta && s.ai.providers[meta.id]) {
       return {
         name: meta.name,
+        nameEn: meta.nameEn,
         cfg: s.ai.providers[meta.id],
         needsKey: meta.id !== 'ollama'
       }
@@ -908,13 +911,17 @@ app.whenReady().then(async () => {
     return null
   }
 
+  // 按界面语言显示提供商名称
+  const providerDisplayName = (p: { name: string; nameEn?: string }): string =>
+    getSettings().appearance.language === 'en' && p.nameEn ? p.nameEn : p.name
+
   // 连通性测试：真实发起一次最小对话，失败返回服务端真实报文
   ipcMain.handle('ai:test', async (_event, providerId: string) => {
     const p = resolveProvider(providerId)
-    if (!p) return { ok: false, error: '未知的提供商' }
+    if (!p) return { ok: false, error: mt('unknownProvider') }
     const apiKey = p.cfg.apiKey.trim() || (p.needsKey ? '' : 'ollama')
-    if (!apiKey) return { ok: false, error: '未填写 API Key' }
-    if (!p.cfg.baseUrl.trim()) return { ok: false, error: '未填写 Base URL' }
+    if (!apiKey) return { ok: false, error: mt('needApiKey') }
+    if (!p.cfg.baseUrl.trim()) return { ok: false, error: mt('needBaseUrl') }
     const t0 = Date.now()
     try {
       const r = await chatStream({
@@ -938,19 +945,20 @@ app.whenReady().then(async () => {
   ipcMain.handle('ai:analyze', async (event, payload: AiAnalyzeRequest) => {
     const s = getSettings()
     const p = resolveProvider(s.ai.current)
-    if (!p) return { ok: false, error: '未选择有效的 AI 提供商' }
+    if (!p) return { ok: false, error: mt('aiNoProvider') }
     const apiKey = p.cfg.apiKey.trim() || (p.needsKey ? '' : 'ollama')
     if (!apiKey)
-      return { ok: false, error: '当前 AI 提供商未配置 API Key，请到「设置 → AI 提供商」填写。' }
+      return { ok: false, error: mt('aiNoKey') }
     const results: NormalizedIPResult[] = Array.isArray(payload?.results)
       ? payload.results
       : []
-    if (!results.length) return { ok: false, error: '暂无检测数据可供分析' }
+    if (!results.length) return { ok: false, error: mt('aiNoData') }
     console.log('[AI] payload bytes', JSON.stringify(results).length)
     const t0 = Date.now()
     let full = ''
+    const lang = s.appearance.language === 'en' ? 'en' : 'zh'
     try {
-      const messages = buildMessages(results, String(payload?.consistency ?? ''), s.ai.extraPrompt)
+      const messages = buildMessages(results, String(payload?.consistency ?? ''), s.ai.extraPrompt, lang)
       for (let cont = 0; cont < 4; cont++) {
         const r = await chatStream({
           baseUrl: p.cfg.baseUrl,
@@ -969,14 +977,16 @@ app.whenReady().then(async () => {
         messages.push({
           role: 'user',
           content:
-            '上一次输出因长度限制被截断。请从截断处继续写完剩余内容：不要重复已完成的段落与标题，不要开场白，直接续写。'
+            lang === 'en'
+              ? 'The previous output was cut off due to the length limit. Please continue from where it was cut off and finish the remaining content: do not repeat finished paragraphs or headings, no preamble, continue writing directly.'
+              : '上一次输出因长度限制被截断。请从截断处继续写完剩余内容：不要重复已完成的段落与标题，不要开场白，直接续写。'
         })
         event.sender.send('ai:chunk', '\n\n')
       }
       return {
         ok: true,
         text: full,
-        provider: p.name,
+        provider: providerDisplayName(p),
         model: p.cfg.model,
         ms: Date.now() - t0
       }
@@ -985,7 +995,51 @@ app.whenReady().then(async () => {
         ok: false,
         error: (e as Error).message,
         partial: full,
-        provider: p.name,
+        provider: providerDisplayName(p),
+        model: p.cfg.model,
+        ms: Date.now() - t0
+      }
+    }
+  })
+
+  // AI 场景询问：用户问「这个 IP 适不适合某用途」，流式回答结论 + 依据 + 换节点建议
+  ipcMain.handle('ai:ask', async (event, payload: AiAskRequest) => {
+    const s = getSettings()
+    const p = resolveProvider(s.ai.current)
+    if (!p) return { ok: false, error: mt('aiNoProvider') }
+    const apiKey = p.cfg.apiKey.trim() || (p.needsKey ? '' : 'ollama')
+    if (!apiKey) return { ok: false, error: mt('aiNoKey') }
+    const results: NormalizedIPResult[] = Array.isArray(payload?.results)
+      ? payload.results
+      : []
+    const question = String(payload?.question ?? '').trim().slice(0, 500)
+    if (!results.length) return { ok: false, error: mt('aiNoData') }
+    if (!question) return { ok: false, error: mt('askEmpty') }
+    const lang = s.appearance.language === 'en' ? 'en' : 'zh'
+    const t0 = Date.now()
+    try {
+      const messages = buildAskMessages(results, String(payload?.consistency ?? ''), question, lang)
+      const r = await chatStream({
+        baseUrl: p.cfg.baseUrl,
+        apiKey,
+        model: p.cfg.model,
+        temperature: s.ai.temperature,
+        maxTokens: s.ai.maxTokens,
+        messages,
+        onChunk: (d) => event.sender.send('ai:askChunk', d)
+      })
+      return {
+        ok: true,
+        text: r.text,
+        provider: providerDisplayName(p),
+        model: p.cfg.model,
+        ms: Date.now() - t0
+      }
+    } catch (e) {
+      return {
+        ok: false,
+        error: (e as Error).message,
+        provider: providerDisplayName(p),
         model: p.cfg.model,
         ms: Date.now() - t0
       }
@@ -1000,7 +1054,7 @@ app.whenReady().then(async () => {
   }))
   ipcMain.handle('history:get', async (_event, id: string) => {
     const record = getHistory(id)
-    return record ? { ok: true, record } : { ok: false, error: '记录不存在' }
+    return record ? { ok: true, record } : { ok: false, error: mt('historyNotFound') }
   })
   ipcMain.handle('history:save', async (_event, record: HistoryRecord) => {
     try {
@@ -1031,18 +1085,18 @@ app.whenReady().then(async () => {
         const ext = payload.format
         const win = BrowserWindow.fromWebContents(event.sender)
         const opts = {
-          title: '导出检测报告',
+          title: mt('exportTitle'),
           defaultPath: defaultReportName(ext),
           filters: [
             {
               name:
                 ext === 'html'
-                  ? 'HTML 网页'
+                  ? mt('exportHtml')
                   : ext === 'pdf'
-                    ? 'PDF 文档'
+                    ? mt('exportPdf')
                     : ext === 'json'
-                      ? 'JSON 数据'
-                      : 'TXT 文本',
+                      ? mt('exportJson')
+                      : mt('exportTxt'),
               extensions: [ext]
             }
           ]

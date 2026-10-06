@@ -2,6 +2,7 @@ import { app, BrowserWindow } from 'electron'
 import fs from 'fs'
 import { join } from 'path'
 import type { ExportFormat, ReportModel } from '@shared/types'
+import { mt } from './i18n'
 
 // =============================================================
 // 报告导出：HTML / PDF / JSON / TXT
@@ -12,7 +13,6 @@ import type { ExportFormat, ReportModel } from '@shared/types'
 // 落款：网鉴（IP Insight）· 版权所有 © 2026 薛泽。
 // =============================================================
 
-const SIGNATURE = '网鉴（IP Insight）· 版权所有 © 2026 薛泽（Xue Ze）'
 const REPO = 'https://github.com/xueze-ai?tab=repositories'
 
 function esc(s: string): string {
@@ -100,42 +100,42 @@ export function buildTxt(model: ReportModel): string {
   const line = '='.repeat(64)
   const sub = '-'.repeat(64)
   L.push(line)
-  L.push('网鉴 · IP Insight 网络环境综合检测报告')
+  L.push(mt('reportTitle'))
   L.push(line)
-  L.push(`报告生成时间：${fmtTime(model.generatedAt)}`)
-  L.push(`检测时间：${fmtTime(model.startedAt)} — ${fmtTime(model.finishedAt)}`)
-  L.push(`公网 IP：${model.currentIp ?? '—'}`)
-  L.push(`数据源：${model.successCount}/${model.totalCount} 成功`)
+  L.push(`${mt('reportGenerated')}${fmtTime(model.generatedAt)}`)
+  L.push(`${mt('reportTime')}${fmtTime(model.startedAt)} — ${fmtTime(model.finishedAt)}`)
+  L.push(`${mt('reportIp')}${model.currentIp ?? '—'}`)
+  L.push(`${mt('reportSources')}${model.successCount}/${model.totalCount} ${mt('reportSuccess')}`)
   L.push('')
-  L.push('一、数据源检测明细')
+  L.push(mt('reportSec1'))
   L.push(sub)
   for (const d of model.sourceDetails) {
-    L.push(`◆ ${d.name}　${d.ok ? '成功' : `失败（${d.error ?? '未知原因'}）`}${d.durationMs != null ? `　耗时 ${(d.durationMs / 1000).toFixed(1)}s` : ''}`)
-    for (const row of d.rows) L.push(`    ${row.label}：${row.value}`)
+    L.push(`◆ ${d.name}　${d.ok ? mt('reportDetectOk') : `${mt('reportDetectFail')}（${d.error ?? mt('reportUnknownReason')}）`}${d.durationMs != null ? `　${(d.durationMs / 1000).toFixed(1)}s` : ''}`)
+    for (const row of d.rows) L.push(`    ${row.label}: ${row.value}`)
     L.push('')
   }
-  L.push('二、关键字段（多源聚合）')
+  L.push(mt('reportSec2'))
   L.push(sub)
-  for (const f of model.fields) L.push(`· ${f.label}：${f.value}`)
+  for (const f of model.fields) L.push(`· ${f.label}: ${f.value}`)
   L.push('')
-  L.push('三、多源对比矩阵')
+  L.push(mt('reportSec3'))
   L.push(sub)
   for (const m of model.matrix) {
     L.push(`· ${m.field}`)
-    for (const p of m.perSource) L.push(`    - ${p.source}：${p.value}`)
+    for (const p of m.perSource) L.push(`    - ${p.source}: ${p.value}`)
   }
   L.push('')
-  L.push('四、多源一致性结论')
+  L.push(mt('reportSec4'))
   L.push(sub)
   L.push(model.consistency)
   L.push('')
-  L.push('五、AI 综合分析')
+  L.push(mt('reportSec5'))
   L.push(sub)
-  L.push(model.ai ? model.ai : '（本次报告未包含 AI 分析）')
+  L.push(model.ai ? model.ai : mt('reportNoAi'))
   L.push('')
   L.push(line)
-  L.push(SIGNATURE)
-  L.push(`项目仓库：${REPO}`)
+  L.push(mt('reportSignature'))
+  L.push(`${mt('reportRepo')}${REPO}`)
   return L.join('\r\n')
 }
 
@@ -149,10 +149,10 @@ export function buildHtml(model: ReportModel): string {
       return `<div class="src">
         <div class="src-head">
           <span class="src-name">${esc(d.name)}</span>
-          ${d.ok ? '<span class="ok">检测成功</span>' : `<span class="bad">检测失败</span>`}
+          ${d.ok ? `<span class="ok">${mt('reportDetectOk')}</span>` : `<span class="bad">${mt('reportDetectFail')}</span>`}
           ${d.durationMs != null ? `<span class="dur">${(d.durationMs / 1000).toFixed(1)}s</span>` : ''}
         </div>
-        ${d.ok ? `<table class="kv"><tbody>${rows}</tbody></table>` : `<p class="err">${esc(d.error ?? '未知原因')}</p>`}
+        ${d.ok ? `<table class="kv"><tbody>${rows}</tbody></table>` : `<p class="err">${esc(d.error ?? mt('reportUnknownReason'))}</p>`}
       </div>`
     })
     .join('\n')
@@ -171,10 +171,10 @@ export function buildHtml(model: ReportModel): string {
     .join('')
 
   return `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="${mt('reportHtmlLang')}">
 <head>
 <meta charset="utf-8" />
-<title>网鉴 · IP Insight 检测报告 · ${esc(model.currentIp ?? '')}</title>
+<title>${mt('reportTitle')} · ${esc(model.currentIp ?? '')}</title>
 <style>
   * { box-sizing: border-box; }
   body { font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif; color: #1f2328; margin: 0; background: #f7f8fa; font-size: 13.5px; }
@@ -215,34 +215,34 @@ export function buildHtml(model: ReportModel): string {
 </head>
 <body>
 <div class="wrap">
-  <h1>网鉴 · IP Insight 网络环境综合检测报告</h1>
-  <div class="sub">Wang Jian · IP Insight Comprehensive Network Report</div>
+  <h1>${mt('reportTitle')}</h1>
+  <div class="sub">${mt('reportSub')}</div>
 
   <div class="meta">
-    公网 IP：<span class="ip">${esc(model.currentIp ?? '—')}</span><br />
-    检测时间：<b>${fmtTime(model.startedAt)}</b> — <b>${fmtTime(model.finishedAt)}</b><br />
-    报告生成：<b>${fmtTime(model.generatedAt)}</b>　数据源：<b>${model.successCount}/${model.totalCount} 成功</b>
+    ${mt('reportIp')}<span class="ip">${esc(model.currentIp ?? '—')}</span><br />
+    ${mt('reportTime')}<b>${fmtTime(model.startedAt)}</b> — <b>${fmtTime(model.finishedAt)}</b><br />
+    ${mt('reportGenerated')}<b>${fmtTime(model.generatedAt)}</b>　${mt('reportSources')}<b>${model.successCount}/${model.totalCount} ${mt('reportSuccess')}</b>
   </div>
 
-  <h2>一、数据源检测明细</h2>
+  <h2>${mt('reportSec1')}</h2>
   ${sourceCards}
 
-  <h2>二、关键字段（多源聚合）</h2>
+  <h2>${mt('reportSec2')}</h2>
   <div class="card"><table class="kv"><tbody>${fields}</tbody></table></div>
 
-  <h2>三、多源对比矩阵</h2>
-  ${matrix || '<p class="sub">无多源可比字段。</p>'}
+  <h2>${mt('reportSec3')}</h2>
+  ${matrix || `<p class="sub">${mt('reportNoMatrix')}</p>`}
 
-  <h2>四、多源一致性结论</h2>
+  <h2>${mt('reportSec4')}</h2>
   <pre class="consistency">${esc(model.consistency)}</pre>
 
-  <h2>五、AI 综合分析</h2>
-  <div class="ai">${model.ai ? mdToHtml(model.ai) : '<p class="sub">（本次报告未包含 AI 分析）</p>'}</div>
+  <h2>${mt('reportSec5')}</h2>
+  <div class="ai">${model.ai ? mdToHtml(model.ai) : `<p class="sub">${mt('reportNoAi')}</p>`}</div>
 
   <div class="foot">
-    <div class="sign">${SIGNATURE}</div>
-    项目仓库：${REPO}<br />
-    本报告由检测时点各数据源公开页面与本机实测汇总生成；多源分歧项已如实标注，未做单一化裁剪。
+    <div class="sign">${mt('reportSignature')}</div>
+    ${mt('reportRepo')}${REPO}<br />
+    ${mt('reportFoot')}
   </div>
 </div>
 </body>
@@ -292,5 +292,5 @@ export function defaultReportName(format: ExportFormat): string {
   const d = new Date()
   const p = (n: number): string => String(n).padStart(2, '0')
   const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
-  return `网鉴-IP-Insight-报告-${stamp}.${format}`
+  return `${mt('reportFileName')}-${stamp}.${format}`
 }

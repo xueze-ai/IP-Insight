@@ -1,4 +1,5 @@
 import type { NormalizedIPResult } from '@shared/types'
+import { tt } from '../i18n'
 
 // =============================================================
 // 本机测速状态（模块级单例）
@@ -69,7 +70,7 @@ export function startSpeedtest(): void {
           phase: 'error',
           finishedAt: Date.now(),
           result: r,
-          error: r.error ?? '测速失败，未取得带宽数据'
+          error: r.error ?? tt('misc.speedtest.failed')
         })
       }
     })

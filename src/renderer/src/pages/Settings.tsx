@@ -32,6 +32,8 @@ import type {
 } from '@shared/types'
 import { AI_PROVIDER_META } from '@shared/aiProviders'
 import { useTheme } from '../hooks/useTheme'
+import { useLang } from '../i18n'
+import type { Params, TKey } from '../i18n'
 
 // =============================================================
 // 设置页
@@ -41,12 +43,12 @@ import { useTheme } from '../hooks/useTheme'
 
 type Section = 'appearance' | 'ai' | 'detection' | 'privacy' | 'about'
 
-const SECTIONS: { id: Section; label: string; icon: typeof Palette }[] = [
-  { id: 'appearance', label: '外观', icon: Palette },
-  { id: 'ai', label: 'AI 提供商', icon: Bot },
-  { id: 'detection', label: '检测', icon: Activity },
-  { id: 'privacy', label: '数据与隐私', icon: Database },
-  { id: 'about', label: '关于', icon: Info }
+const SECTIONS: { id: Section; icon: typeof Palette }[] = [
+  { id: 'appearance', icon: Palette },
+  { id: 'ai', icon: Bot },
+  { id: 'detection', icon: Activity },
+  { id: 'privacy', icon: Database },
+  { id: 'about', icon: Info }
 ]
 
 const PROVIDER_ICON: Record<string, typeof Bot> = {
@@ -64,24 +66,30 @@ const PROVIDER_ICON: Record<string, typeof Bot> = {
 interface ProviderItem {
   id: string
   name: string
+  nameEn?: string
   desc: string
+  descEn?: string
   tag?: string
+  tagEn?: string
   defaultBaseUrl: string
   defaultModel: string
   modelHint: string
+  modelHintEn?: string
   isCustom: boolean
 }
 
-const DATA_SOURCES: { name: string; url: string }[] = [
-  { name: 'Ping0', url: 'https://ping0.cc/' },
-  { name: 'Net.Coffee 主页', url: 'https://ip.net.coffee/' },
-  { name: 'Net.Coffee IP 评分', url: 'https://ip.net.coffee/ip/' },
-  { name: 'Net.Coffee GPT 检测', url: 'https://ip.net.coffee/gpt/' },
-  { name: 'Net.Coffee 全球 Ping', url: 'https://ip.net.coffee/ping/' },
-  { name: 'Net.Coffee 服务状态', url: 'https://ip.net.coffee/status/' },
-  { name: 'IPPure', url: 'https://ippure.com/' },
-  { name: 'Cloudflare Speedtest', url: 'https://speed.cloudflare.com/' }
-]
+function dataSources(t: (key: TKey, params?: Params) => string): { name: string; url: string }[] {
+  return [
+    { name: 'Ping0', url: 'https://ping0.cc/' },
+    { name: t('settings.about.sourceNames.netcoffeeHome'), url: 'https://ip.net.coffee/' },
+    { name: t('settings.about.sourceNames.netcoffeeScore'), url: 'https://ip.net.coffee/ip/' },
+    { name: t('settings.about.sourceNames.netcoffeeGpt'), url: 'https://ip.net.coffee/gpt/' },
+    { name: t('settings.about.sourceNames.netcoffeePing'), url: 'https://ip.net.coffee/ping/' },
+    { name: t('settings.about.sourceNames.netcoffeeStatus'), url: 'https://ip.net.coffee/status/' },
+    { name: 'IPPure', url: 'https://ippure.com/' },
+    { name: 'Cloudflare Speedtest', url: 'https://speed.cloudflare.com/' }
+  ]
+}
 
 function Switch({
   checked,
@@ -129,22 +137,24 @@ function Row({
   )
 }
 
-function updateStatusText(s: UpdateStatus | null): string {
-  if (!s || s.state === 'idle')
-    return '从 GitHub Releases 检查新版本；发现新版本会在后台自动下载。'
+function updateStatusText(
+  t: (key: TKey, params?: Params) => string,
+  s: UpdateStatus | null
+): string {
+  if (!s || s.state === 'idle') return t('settings.about.updateCheckDesc')
   switch (s.state) {
     case 'checking':
-      return '正在检查更新…'
+      return t('settings.about.updateChecking')
     case 'available':
-      return `发现新版本 v${s.version ?? ''}，正在后台下载…`
+      return t('settings.about.updateAvailable', { version: s.version ?? '' })
     case 'downloading':
-      return `正在下载新版本…${s.percent ?? 0}%`
+      return t('settings.about.updateDownloading', { percent: s.percent ?? 0 })
     case 'downloaded':
-      return `新版本 v${s.version ?? ''} 已下载完成，可重启更新。`
+      return t('settings.about.updateDownloaded', { version: s.version ?? '' })
     case 'up-to-date':
-      return '已是最新版本。'
+      return t('settings.about.updateUptodate')
     case 'error':
-      return `检查失败：${s.message ?? '未知错误'}`
+      return t('settings.about.updateError', { message: s.message ?? '' })
   }
 }
 
@@ -163,6 +173,7 @@ export function Settings({
   const [version, setVersion] = useState('')
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null)
   const { theme, setTheme } = useTheme()
+  const { t, lang, setLang } = useLang()
 
   useEffect(() => {
     setSection(initialSection)
@@ -205,6 +216,10 @@ export function Settings({
     void window.ipInsight.setSettings(next).catch(() => undefined)
   }
 
+  // 按当前语言取提供商文案（内置项走元数据的 En 字段，自定义项走字典）
+  const L = (zhText: string, enText?: string): string =>
+    lang === 'en' && enText ? enText : zhText
+
   const providerList: ProviderItem[] = [
     ...AI_PROVIDER_META.filter((m) => !local.ai.hiddenProviders.includes(m.id)).map(
       (m) => ({ ...m, isCustom: false })
@@ -212,11 +227,11 @@ export function Settings({
     ...Object.entries(local.ai.customProviders ?? {}).map(([id, c]) => ({
       id,
       name: c.name || id,
-      desc: '自定义 OpenAI 兼容提供商',
-      tag: '自定义',
+      desc: t('settings.ai.customDesc'),
+      tag: t('settings.ai.customTag'),
       defaultBaseUrl: '',
       defaultModel: '',
-      modelHint: '自行填写 Base URL 与模型名',
+      modelHint: t('settings.ai.customModelHint'),
       isCustom: true
     }))
   ]
@@ -257,8 +272,8 @@ export function Settings({
 
   return (
     <div className="page" style={{ paddingTop: 40 }}>
-      <span className="dash-kicker">Settings · 偏好设置</span>
-      <h1 className="h1" style={{ marginTop: 6 }}>设置</h1>
+      <span className="dash-kicker">{t('settings.kicker')}</span>
+      <h1 className="h1" style={{ marginTop: 6 }}>{t('common.nav.settings')}</h1>
 
       <div className="set-cols" style={{ marginTop: 24 }}>
         {/* ---------- 左：分区导航 ---------- */}
@@ -270,7 +285,7 @@ export function Settings({
               onClick={() => setSection(s.id)}
             >
               <s.icon size={16} strokeWidth={1.9} />
-              {s.label}
+              {t(`settings.sections.${s.id}`)}
             </button>
           ))}
         </nav>
@@ -279,14 +294,14 @@ export function Settings({
         <div style={{ minWidth: 0 }}>
           {section === 'appearance' && (
             <div className="card">
-              <div className="card-eyebrow" style={{ marginBottom: 8 }}>外观</div>
-              <Row title="主题模式" desc="浅色 / 深色 / 跟随系统；顶栏按钮可快速切换浅深。">
+              <div className="card-eyebrow" style={{ marginBottom: 8 }}>{t('settings.sections.appearance')}</div>
+              <Row title={t('settings.appearance.themeTitle')} desc={t('settings.appearance.themeDesc')}>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {(
                     [
-                      { v: 'light', label: '浅色', icon: Sun },
-                      { v: 'dark', label: '深色', icon: Moon },
-                      { v: 'system', label: '跟随系统', icon: Monitor }
+                      { v: 'light', labelKey: 'settings.appearance.themeLight', icon: Sun },
+                      { v: 'dark', labelKey: 'settings.appearance.themeDark', icon: Moon },
+                      { v: 'system', labelKey: 'settings.appearance.themeSystem', icon: Monitor }
                     ] as const
                   ).map((o) => (
                     <button
@@ -294,18 +309,18 @@ export function Settings({
                       className={'btn btn-sm ' + (theme === o.v ? 'btn-tonal' : 'btn-ghost')}
                       onClick={() => setTheme(o.v)}
                     >
-                      <o.icon size={14} /> {o.label}
+                      <o.icon size={14} /> {t(o.labelKey)}
                     </button>
                   ))}
                 </div>
               </Row>
               <Row
-                title="默认折叠侧边栏"
-                desc="下次启动时侧边栏以折叠状态开始（本次会话可用顶栏按钮随时切换）。"
+                title={t('settings.appearance.collapseTitle')}
+                desc={t('settings.appearance.collapseDesc')}
               >
                 <Switch
                   checked={local.appearance.sidebarCollapsedByDefault}
-                  label="默认折叠侧边栏"
+                  label={t('settings.appearance.collapseTitle')}
                   onChange={(v) =>
                     commit({
                       ...local,
@@ -314,12 +329,12 @@ export function Settings({
                   }
                 />
               </Row>
-              <Row title="界面字号" desc="标准 14px / 大 15.5px，即时生效。">
+              <Row title={t('settings.appearance.fontTitle')} desc={t('settings.appearance.fontDesc')}>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {(
                     [
-                      { v: 'standard', label: '标准' },
-                      { v: 'large', label: '大' }
+                      { v: 'standard', labelKey: 'settings.appearance.fontStandard' },
+                      { v: 'large', labelKey: 'settings.appearance.fontLarge' }
                     ] as const
                   ).map((o) => (
                     <button
@@ -337,7 +352,28 @@ export function Settings({
                           o.v === 'large' ? '15.5px' : ''
                       }}
                     >
-                      {o.label}
+                      {t(o.labelKey)}
+                    </button>
+                  ))}
+                </div>
+              </Row>
+              <Row title={t('settings.appearance.langTitle')} desc={t('settings.appearance.langDesc')}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {(
+                    [
+                      { v: 'zh', labelKey: 'settings.appearance.langZh' },
+                      { v: 'en', labelKey: 'settings.appearance.langEn' }
+                    ] as const
+                  ).map((o) => (
+                    <button
+                      key={o.v}
+                      className={
+                        'btn btn-sm ' +
+                        (lang === o.v ? 'btn-tonal' : 'btn-ghost')
+                      }
+                      onClick={() => setLang(o.v)}
+                    >
+                      {t(o.labelKey)}
                     </button>
                   ))}
                 </div>
@@ -349,7 +385,7 @@ export function Settings({
             <>
               <div className="card">
                 <div className="card-head" style={{ marginBottom: 8 }}>
-                  <div className="card-eyebrow">AI 提供商</div>
+                  <div className="card-eyebrow">{t('settings.sections.ai')}</div>
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => {
@@ -360,7 +396,7 @@ export function Settings({
                           ...local.ai,
                           customProviders: {
                             ...local.ai.customProviders,
-                            [id]: { name: `自定义 ${Object.keys(local.ai.customProviders ?? {}).length + 1}`, apiKey: '', baseUrl: '', model: '' }
+                            [id]: { name: t('settings.ai.customName', { n: Object.keys(local.ai.customProviders ?? {}).length + 1 }), apiKey: '', baseUrl: '', model: '' }
                           }
                         }
                       }
@@ -368,13 +404,11 @@ export function Settings({
                       setExpanded(id)
                     }}
                   >
-                    + 添加自定义提供商
+                    {t('settings.ai.addCustom')}
                   </button>
                 </div>
                 <p className="caption" style={{ lineHeight: 1.7, marginBottom: 12 }}>
-                  所有提供商均通过 OpenAI 兼容接口调用；API Key 仅保存在本机
-                  settings.json，不会上传到任何第三方。分析时只发送标准化检测数据。
-                  内置提供商可隐藏，自定义提供商可删除。
+                  {t('settings.ai.intro')}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {providerList.map((m) => {
@@ -392,11 +426,11 @@ export function Settings({
                           <span className="prov-icon">
                             <Icon size={16} />
                           </span>
-                          <span className="prov-name">{m.name}</span>
-                          {m.tag && <span className="badge badge-info">{m.tag}</span>}
-                          {isCurrent && <span className="badge badge-good">使用中</span>}
+                          <span className="prov-name">{L(m.name, m.nameEn)}</span>
+                          {m.tag && <span className="badge badge-info">{L(m.tag, m.tagEn)}</span>}
+                          {isCurrent && <span className="badge badge-good">{t('settings.ai.inUse')}</span>}
                           {!isCurrent && cfg?.apiKey.trim() && (
-                            <span className="badge badge-neutral">已配置</span>
+                            <span className="badge badge-neutral">{t('settings.ai.configured')}</span>
                           )}
                           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                             {!isCurrent && (
@@ -406,18 +440,19 @@ export function Settings({
                                   commit({ ...local, ai: { ...local.ai, current: m.id } })
                                 }
                               >
-                                设为当前
+                                {t('settings.ai.setCurrent')}
                               </button>
                             )}
                             <button
                               className="btn btn-ghost btn-sm"
                               style={{ color: 'var(--bad)' }}
-                              title={m.isCustom ? '删除该自定义提供商' : '从列表中隐藏'}
+                              title={m.isCustom ? t('settings.ai.deleteTitle') : t('settings.ai.hideTitle')}
                               onClick={() => {
-                                const label = m.isCustom ? '删除' : '隐藏'
                                 if (
                                   !window.confirm(
-                                    `${label}「${m.name}」？${m.isCustom ? '其配置将被移除。' : '可随时在 README 说明中恢复（重置设置或在隐藏列表中管理）。'}`
+                                    t(m.isCustom ? 'settings.ai.deleteConfirm' : 'settings.ai.hideConfirm', {
+                                      name: L(m.name, m.nameEn)
+                                    })
                                   )
                                 )
                                   return
@@ -439,13 +474,13 @@ export function Settings({
                                 }
                               }}
                             >
-                              <Trash2 size={13} /> {m.isCustom ? '删除' : '隐藏'}
+                              <Trash2 size={13} /> {m.isCustom ? t('settings.ai.delete') : t('settings.ai.hide')}
                             </button>
                             <button
                               className="btn-icon"
                               style={{ width: 30, height: 30 }}
                               onClick={() => setExpanded(isOpen ? null : m.id)}
-                              title={isOpen ? '收起配置' : '配置'}
+                              title={isOpen ? t('settings.ai.collapseTitle') : t('settings.ai.expandTitle')}
                             >
                               <ChevronDown
                                 size={16}
@@ -458,14 +493,14 @@ export function Settings({
                           </div>
                         </div>
                         <p className="caption" style={{ marginTop: 6, lineHeight: 1.6 }}>
-                          {m.desc}
+                          {L(m.desc, m.descEn)}
                         </p>
 
                         {isOpen && (
                           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
                             {m.isCustom && (
                               <div>
-                                <label className="field-label">显示名称</label>
+                                <label className="field-label">{t('settings.ai.fieldName')}</label>
                                 <input
                                   className="input"
                                   value={cfg?.name ?? ''}
@@ -475,13 +510,13 @@ export function Settings({
                             )}
                             <div>
                               <label className="field-label">
-                                API Key{m.id === 'ollama' ? '（本地 Ollama 可留空）' : ''}
+                                {m.id === 'ollama' ? t('settings.ai.fieldKeyOllama') : t('settings.ai.fieldKey')}
                               </label>
                               <div style={{ display: 'flex', gap: 8 }}>
                                 <input
                                   className="input mono"
                                   type={showKey[m.id] ? 'text' : 'password'}
-                                  placeholder="粘贴你的 API Key"
+                                  placeholder={t('settings.ai.keyPlaceholder')}
                                   value={cfg?.apiKey ?? ''}
                                   onChange={(e) => setProvider(m.id, { apiKey: e.target.value })}
                                   style={{ flex: 1 }}
@@ -491,7 +526,7 @@ export function Settings({
                                   onClick={() =>
                                     setShowKey((s) => ({ ...s, [m.id]: !s[m.id] }))
                                   }
-                                  title={showKey[m.id] ? '隐藏' : '显示'}
+                                  title={showKey[m.id] ? t('settings.ai.hideKey') : t('settings.ai.showKey')}
                                 >
                                   {showKey[m.id] ? <EyeOff size={14} /> : <Eye size={14} />}
                                 </button>
@@ -507,14 +542,14 @@ export function Settings({
                               />
                             </div>
                             <div>
-                              <label className="field-label">模型</label>
+                              <label className="field-label">{t('settings.ai.fieldModel')}</label>
                               <input
                                 className="input mono"
                                 value={cfg?.model ?? ''}
                                 placeholder={m.defaultModel || 'model-name'}
                                 onChange={(e) => setProvider(m.id, { model: e.target.value })}
                               />
-                              <p className="caption" style={{ marginTop: 4 }}>{m.modelHint}</p>
+                              <p className="caption" style={{ marginTop: 4 }}>{L(m.modelHint, m.modelHintEn)}</p>
                             </div>
                             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                               <button
@@ -523,16 +558,18 @@ export function Settings({
                                 onClick={() => void testProvider(m.id)}
                               >
                                 <RefreshCw size={14} className={ts?.loading ? 'spin' : undefined} />
-                                测试连接
+                                {t('settings.ai.test')}
                               </button>
                               {ts?.result &&
                                 (ts.result.ok ? (
                                   <span className="badge badge-good">
-                                    连接成功 · {ts.result.ms} ms{ts.result.reply ? ` · 回复「${ts.result.reply}」` : ''}
+                                    {ts.result.reply
+                                      ? t('settings.ai.testOkReply', { ms: ts.result.ms ?? 0, reply: ts.result.reply })
+                                      : t('settings.ai.testOk', { ms: ts.result.ms ?? 0 })}
                                   </span>
                                 ) : (
                                   <span className="badge badge-bad" title={ts.result.error}>
-                                    失败：{(ts.result.error ?? '').slice(0, 60)}
+                                    {t('settings.ai.testFail', { error: (ts.result.error ?? '').slice(0, 60) })}
                                   </span>
                                 ))}
                             </div>
@@ -544,7 +581,7 @@ export function Settings({
                 </div>
                 {local.ai.hiddenProviders.length > 0 && (
                   <p className="caption" style={{ marginTop: 12 }}>
-                    已隐藏：{local.ai.hiddenProviders.join('、')}　
+                    {t('settings.ai.hidden', { list: local.ai.hiddenProviders.join('、') })}　
                     <button
                       className="btn btn-text"
                       style={{ height: 22, padding: 0 }}
@@ -552,17 +589,17 @@ export function Settings({
                         commit({ ...local, ai: { ...local.ai, hiddenProviders: [] } })
                       }
                     >
-                      全部恢复
+                      {t('settings.ai.restoreAll')}
                     </button>
                   </p>
                 )}
               </div>
 
               <div className="card" style={{ marginTop: 16 }}>
-                <div className="card-eyebrow" style={{ marginBottom: 8 }}>生成参数</div>
+                <div className="card-eyebrow" style={{ marginBottom: 8 }}>{t('settings.ai.params')}</div>
                 <Row
-                  title="温度 Temperature"
-                  desc="越低越稳定克制；分析报告建议 0.2 – 0.5。"
+                  title={t('settings.ai.tempTitle')}
+                  desc={t('settings.ai.tempDesc')}
                 >
                   <input
                     type="range"
@@ -583,8 +620,8 @@ export function Settings({
                   </span>
                 </Row>
                 <Row
-                  title="单次最大输出 Token"
-                  desc="上限 65536；若仍被模型截断，软件会自动续写直至完成（最多续 3 次）。"
+                  title={t('settings.ai.tokenTitle')}
+                  desc={t('settings.ai.tokenDesc')}
                 >
                   <input
                     className="input mono"
@@ -606,13 +643,13 @@ export function Settings({
                   />
                 </Row>
                 <Row
-                  title="附加分析要求"
-                  desc="追加到 AI 系统提示词末尾，例如「重点评估 TikTok 运营适用性」。"
+                  title={t('settings.ai.extraTitle')}
+                  desc={t('settings.ai.extraDesc')}
                 >
                   <textarea
                     className="input"
                     style={{ height: 64, width: 300, resize: 'vertical', padding: '8px 12px' }}
-                    placeholder="可选"
+                    placeholder={t('settings.ai.extraPlaceholder')}
                     value={local.ai.extraPrompt}
                     onChange={(e) =>
                       commit({ ...local, ai: { ...local.ai, extraPrompt: e.target.value } })
@@ -625,10 +662,10 @@ export function Settings({
 
           {section === 'detection' && (
             <div className="card">
-              <div className="card-eyebrow" style={{ marginBottom: 8 }}>检测</div>
+              <div className="card-eyebrow" style={{ marginBottom: 8 }}>{t('settings.sections.detection')}</div>
               <Row
-                title="单源超时（秒）"
-                desc="综合检测中每个数据源的等待上限；各源内置下限保护（Ping0/IPPure ≥30s、GPT ≥45s、Net.Coffee ≥60s），测速固定 150s 不受此项影响。"
+                title={t('settings.detection.timeoutTitle')}
+                desc={t('settings.detection.timeoutDesc')}
               >
                 <input
                   className="input mono"
@@ -650,24 +687,24 @@ export function Settings({
                 />
               </Row>
               <Row
-                title="启动时自动综合检测"
-                desc="打开软件后自动开始一次综合检测。"
+                title={t('settings.detection.autoRunTitle')}
+                desc={t('settings.detection.autoRunDesc')}
               >
                 <Switch
                   checked={local.detection.autoRunOnStart}
-                  label="启动时自动综合检测"
+                  label={t('settings.detection.autoRunTitle')}
                   onChange={(v) =>
                     commit({ ...local, detection: { ...local.detection, autoRunOnStart: v } })
                   }
                 />
               </Row>
               <Row
-                title="并行检测"
-                desc="四个数据源同时检测（约最快单源耗时）；关闭则依次检测（过程更直观）。"
+                title={t('settings.detection.parallelTitle')}
+                desc={t('settings.detection.parallelDesc')}
               >
                 <Switch
                   checked={local.detection.parallel}
-                  label="并行检测"
+                  label={t('settings.detection.parallelTitle')}
                   onChange={(v) =>
                     commit({ ...local, detection: { ...local.detection, parallel: v } })
                   }
@@ -678,20 +715,20 @@ export function Settings({
 
           {section === 'privacy' && (
             <div className="card">
-              <div className="card-eyebrow" style={{ marginBottom: 8 }}>数据与隐私</div>
+              <div className="card-eyebrow" style={{ marginBottom: 8 }}>{t('settings.sections.privacy')}</div>
               <Row
-                title="保存历史记录"
-                desc="每次检测完成后在本地保存记录（供历史记录页使用）；关闭后不再写入。"
+                title={t('settings.privacy.historyTitle')}
+                desc={t('settings.privacy.historyDesc')}
               >
                 <Switch
                   checked={local.privacy.historyEnabled}
-                  label="保存历史记录"
+                  label={t('settings.privacy.historyTitle')}
                   onChange={(v) =>
                     commit({ ...local, privacy: { ...local.privacy, historyEnabled: v } })
                   }
                 />
               </Row>
-              <Row title="历史保留天数" desc="超期记录在下次写入时自动清理。">
+              <Row title={t('settings.privacy.retentionTitle')} desc={t('settings.privacy.retentionDesc')}>
                 <input
                   className="input mono"
                   type="number"
@@ -711,26 +748,26 @@ export function Settings({
                 />
               </Row>
               <Row
-                title="退出时清除历史"
-                desc="下次启动时自动清空上一次会话的历史记录（适合共用电脑）。"
+                title={t('settings.privacy.clearTitle')}
+                desc={t('settings.privacy.clearDesc')}
               >
                 <Switch
                   checked={local.privacy.clearHistoryOnExit}
-                  label="退出时清除历史"
+                  label={t('settings.privacy.clearTitle')}
                   onChange={(v) =>
                     commit({ ...local, privacy: { ...local.privacy, clearHistoryOnExit: v } })
                   }
                 />
               </Row>
               <Row
-                title="重置全部设置"
-                desc="恢复默认值并清空已保存的 API Key（不可撤销）。"
+                title={t('settings.privacy.resetTitle')}
+                desc={t('settings.privacy.resetDesc')}
               >
                 <button
                   className="btn btn-ghost btn-sm"
                   style={{ color: 'var(--bad)' }}
                   onClick={() => {
-                    if (window.confirm('确定重置全部设置？已保存的 API Key 将被清空。')) {
+                    if (window.confirm(t('settings.privacy.resetConfirm'))) {
                       window.ipInsight
                         .resetSettings()
                         .then((r) => setLocal(r.settings))
@@ -738,7 +775,7 @@ export function Settings({
                     }
                   }}
                 >
-                  <RotateCcw size={14} /> 重置
+                  <RotateCcw size={14} /> {t('settings.privacy.resetBtn')}
                 </button>
               </Row>
             </div>
@@ -747,26 +784,26 @@ export function Settings({
           {section === 'about' && (
             <>
               <div className="card">
-                <div className="card-eyebrow" style={{ marginBottom: 8 }}>关于</div>
+                <div className="card-eyebrow" style={{ marginBottom: 8 }}>{t('settings.sections.about')}</div>
                 <div className="kv">
                   <div className="kv-row">
-                    <div className="kv-key">软件名称</div>
-                    <div className="kv-val">网鉴 · IP Insight（IP 综合检测助手）</div>
+                    <div className="kv-key">{t('settings.about.appName')}</div>
+                    <div className="kv-val">{t('settings.about.appNameValue')}</div>
                   </div>
                   <div className="kv-row">
-                    <div className="kv-key">版本</div>
+                    <div className="kv-key">{t('settings.about.version')}</div>
                     <div className="kv-val mono">{version || '0.1.0'}</div>
                   </div>
                   <div className="kv-row">
-                    <div className="kv-key">作者</div>
-                    <div className="kv-val">薛泽（Xue Ze）</div>
+                    <div className="kv-key">{t('settings.about.author')}</div>
+                    <div className="kv-val">{t('settings.about.authorValue')}</div>
                   </div>
                   <div className="kv-row">
-                    <div className="kv-key">版权</div>
-                    <div className="kv-val">Copyright © 2026 薛泽（Xue Ze）· 网鉴 IP Insight</div>
+                    <div className="kv-key">{t('settings.about.copyright')}</div>
+                    <div className="kv-val">{t('settings.about.copyrightValue')}</div>
                   </div>
                   <div className="kv-row">
-                    <div className="kv-key">项目仓库</div>
+                    <div className="kv-key">{t('settings.about.repo')}</div>
                     <div className="kv-val" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span className="mono" style={{ fontSize: 12.5 }}>
                         github.com/xueze-ai
@@ -779,35 +816,35 @@ export function Settings({
                           )
                         }
                       >
-                        <ExternalLink size={13} /> 打开
+                        <ExternalLink size={13} /> {t('common.action.open')}
                       </button>
                     </div>
                   </div>
                   <div className="kv-row">
-                    <div className="kv-key">架构</div>
-                    <div className="kv-val">Electron + React + TypeScript · 内置 Chromium 隐藏页渲染</div>
+                    <div className="kv-key">{t('settings.about.arch')}</div>
+                    <div className="kv-val">{t('settings.about.archValue')}</div>
                   </div>
                   <div className="kv-row">
-                    <div className="kv-key">数据原则</div>
-                    <div className="kv-val">所有数据来自上述数据源与本机测量的实时检测；不内置 IP 数据库</div>
+                    <div className="kv-key">{t('settings.about.principle')}</div>
+                    <div className="kv-val">{t('settings.about.principleValue')}</div>
                   </div>
                 </div>
               </div>
               <div className="card" style={{ marginTop: 16 }}>
-                <div className="card-eyebrow" style={{ marginBottom: 8 }}>软件更新</div>
+                <div className="card-eyebrow" style={{ marginBottom: 8 }}>{t('settings.about.updateEyebrow')}</div>
                 <Row
-                  title="启动时自动检查更新"
-                  desc="打开软件约 8 秒后在后台检查 GitHub Releases；发现新版本自动下载，下载完成后由你决定是否重启更新（也可下次退出时自动安装）。"
+                  title={t('settings.about.updateAutoTitle')}
+                  desc={t('settings.about.updateAutoDesc')}
                 >
                   <Switch
                     checked={local.updates.autoCheck}
-                    label="启动时自动检查更新"
+                    label={t('settings.about.updateAutoTitle')}
                     onChange={(v) =>
                       commit({ ...local, updates: { autoCheck: v } })
                     }
                   />
                 </Row>
-                <Row title="检查更新" desc={updateStatusText(updateStatus)}>
+                <Row title={t('settings.about.updateCheckTitle')} desc={updateStatusText(t, updateStatus)}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <button
                       className="btn btn-ghost btn-sm"
@@ -820,30 +857,30 @@ export function Settings({
                         window.ipInsight.checkForUpdates().catch(() => undefined)
                       }}
                     >
-                      <RefreshCw size={14} /> 检查更新
+                      <RefreshCw size={14} /> {t('settings.about.updateCheckBtn')}
                     </button>
                     {updateStatus?.state === 'downloaded' && (
                       <button
                         className="btn btn-primary btn-sm"
                         onClick={() => void window.ipInsight.quitAndInstall()}
                       >
-                        重启并更新
+                        {t('settings.about.updateRestartBtn')}
                       </button>
                     )}
                   </div>
                 </Row>
               </div>
               <div className="card" style={{ marginTop: 16 }}>
-                <div className="card-eyebrow" style={{ marginBottom: 8 }}>数据源</div>
+                <div className="card-eyebrow" style={{ marginBottom: 8 }}>{t('settings.about.sources')}</div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {DATA_SOURCES.map((d) => (
+                  {dataSources(t).map((d) => (
                     <div className="set-row" key={d.url} style={{ padding: '9px 0' }}>
                       <span className="small two mono">{d.url}</span>
                       <button
                         className="btn btn-ghost btn-sm"
                         onClick={() => void window.ipInsight.openSource(d.url)}
                       >
-                        <ExternalLink size={13} /> 打开
+                        <ExternalLink size={13} /> {t('common.action.open')}
                       </button>
                     </div>
                   ))}
@@ -851,10 +888,7 @@ export function Settings({
               </div>
               <div className="card card-subtle" style={{ marginTop: 16 }}>
                 <p className="caption" style={{ lineHeight: 1.8 }}>
-                  合规边界：仅做正常浏览器访问、读取用户可见内容、调用站点前端自身使用的公开接口；
-                  不破解验证码、不绕过 Cloudflare 挑战、不绕过登录与访问控制、不伪造请求、规避反爬一律不做；
-                  遇到人机验证直接提示「该数据源需要人工验证 / 暂不可自动获取」。
-                  网站改版时仅需修改对应 Provider Adapter。
+                  {t('settings.about.compliance')}
                 </p>
               </div>
             </>

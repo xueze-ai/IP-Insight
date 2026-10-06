@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
 PackageIdentifier: xueze-ai.IP-Insight
-PackageVersion: 0.2.0
+PackageVersion: 0.2.1
 InstallerType: nullsoft
 Scope: user
 InstallModes:
@@ -9,9 +9,8 @@ InstallModes:
 UpgradeBehavior: install
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/xueze-ai/IP-Insight/releases/download/v0.2.0/IP-Insight-0.2.0-Setup.exe
-    # ⚠️ 发布 v0.2.0 后，把 release/SHA256SUMS.txt 里 IP-Insight-0.2.0-Setup.exe
-    #    对应的哈希填到这里（64 位十六进制），再提交到 winget-pkgs。
-    InstallerSha256: __FILL_FROM_SHA256SUMS_TXT__
+    InstallerUrl: https://github.com/xueze-ai/IP-Insight/releases/download/v0.2.1/IP-Insight-0.2.1-Setup.exe
+    # 哈希取自 release/SHA256SUMS.txt（IP-Insight-0.2.1-Setup.exe）。
+    InstallerSha256: 9CE083AD535671BDE8B9BA2974423C9DBDF81957B20DE876252927B214917E3F
 ManifestType: installer
 ManifestVersion: 1.6.0

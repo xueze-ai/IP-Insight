@@ -17,6 +17,7 @@ import { MultiSource } from '../components/MultiSource'
 import { ExportDialog } from '../components/ExportDialog'
 import { buildReportModel } from '../utils/report'
 import { flagConsensus, successfulResults, TRI_VIEW } from '../utils/aggregate'
+import { useLang } from '../i18n'
 
 function byKey(steps: SourceStep[], key: string): NormalizedIPResult | undefined {
   return steps.find((s) => s.key === key)?.result
@@ -36,14 +37,15 @@ function Mark({ status }: { status: StepStatus }): JSX.Element {
 }
 
 function StepRow({ s }: { s: SourceStep }): JSX.Element {
+  const { t } = useLang()
   const stateText =
     s.status === 'waiting'
-      ? '等待'
+      ? t('dashboard.step.waiting')
       : s.status === 'running'
-        ? '检测中'
+        ? t('dashboard.step.running')
         : s.status === 'ok'
-          ? `已完成 · ${(s.durationMs! / 1000).toFixed(1)}s`
-          : '失败 / 超时'
+          ? t('dashboard.step.done', { sec: (s.durationMs! / 1000).toFixed(1) })
+          : t('dashboard.step.failed')
   return (
     <div className={'source-step' + (s.status === 'running' ? ' running' : '')}>
       <span className="step-mark">
@@ -85,6 +87,7 @@ export function Dashboard(): JSX.Element {
   } = useDetectionContext()
   const [expanded, setExpanded] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const { t } = useLang()
 
   // 设置联动：启动时自动综合检测（仅空闲态触发一次）
   useEffect(() => {
@@ -113,22 +116,21 @@ export function Dashboard(): JSX.Element {
               background: 'var(--primary)'
             }}
           />
-          IP Insight · 网络环境综合检测
+          {t('dashboard.hero.kicker')}
         </div>
-        <h1 className="display">网络环境，一次看清。</h1>
+        <h1 className="display">{t('dashboard.hero.title')}</h1>
         <p className="two" style={{ marginTop: 18, maxWidth: 540, lineHeight: 1.75 }}>
-          自动访问多个检测网站，聚合真实 IP 画像、风险与泄露数据，
-          经交叉验证与 AI 分析，生成一份可信的网络环境报告。
+          {t('dashboard.hero.desc')}
         </p>
         <div style={{ marginTop: 30 }}>
           <button className="btn btn-primary" onClick={run}>
-            开始综合检测
+            {t('dashboard.start')}
           </button>
         </div>
         <div className="dash-current">
-          <span className="caption">当前网络环境</span>
+          <span className="caption">{t('dashboard.hero.currentEnv')}</span>
           <span className="dash-current-meta">
-            点击「开始综合检测」以识别当前公网 IP
+            {t('dashboard.hero.currentEnvHint', { action: t('dashboard.start') })}
           </span>
         </div>
       </div>
@@ -138,13 +140,13 @@ export function Dashboard(): JSX.Element {
   if (phase === 'running') {
     return (
       <div className="page" style={{ paddingTop: 40 }}>
-        <h1 className="h1">正在综合检测</h1>
+        <h1 className="h1">{t('dashboard.running')}</h1>
         <p className="muted" style={{ marginTop: 8 }}>
-          软件正在后台依次访问检测网站，请稍候……
+          {t('dashboard.runningDesc')}
         </p>
         {currentIp && (
           <div className="dash-current">
-            <span className="caption">当前公网 IP</span>
+            <span className="caption">{t('dashboard.currentIp')}</span>
             <span className="dash-current-ip">{currentIp}</span>
           </div>
         )}
@@ -179,7 +181,7 @@ export function Dashboard(): JSX.Element {
   return (
     <div className="page" style={{ paddingTop: 40 }}>
       <span className="dash-kicker">
-        检测完成 · {successCount}/4 数据源成功
+        {t('dashboard.doneKicker', { ok: successCount })}
       </span>
       <div
         className="mono"
@@ -192,7 +194,7 @@ export function Dashboard(): JSX.Element {
       </div>
       <div className="muted small" style={{ marginTop: 4 }}>
         {loc}
-        {gpt?.ip ? ` · ChatGPT 出口 ${gpt.ip}（${gpt.country ?? ''}）` : ''}
+        {gpt?.ip ? t('dashboard.chatgptExit', { ip: gpt.ip, country: gpt.country ?? '' }) : ''}
       </div>
 
       {(hasConflict || hasLeak) && (
@@ -202,28 +204,28 @@ export function Dashboard(): JSX.Element {
         >
           <AlertTriangle size={18} style={{ color: 'var(--warn)', marginTop: 1 }} />
           <div className="small" style={{ color: 'var(--text-2)', lineHeight: 1.7 }}>
-            {hasConflict && '多源对部分属性判断不一致，相关项目当前无法确认；'}
-            {hasLeak && '检测到 DNS / WebRTC 出口与 ChatGPT 出口不一致，存在真实位置泄露。'}
-            以下为各项目的多源口径，确定结论请查看完整结果与 AI 分析。
+            {hasConflict && t('dashboard.alert.conflict')}
+            {hasLeak && t('dashboard.alert.leak')}
+            {t('dashboard.alert.tail')}
           </div>
         </div>
       )}
 
       <div className="card" style={{ marginTop: 20 }}>
         <div className="kv">
-          <KV k="VPN" v={<span className={'badge ' + TRI_VIEW[vpn].cls}>{TRI_VIEW[vpn].text}</span>} />
-          <KV k="代理 Proxy" v={<span className={'badge ' + TRI_VIEW[proxy].cls}>{TRI_VIEW[proxy].text}</span>} />
-          <KV k="Tor" v={<span className={'badge ' + TRI_VIEW[tor].cls}>{TRI_VIEW[tor].text}</span>} />
+          <KV k={t('dashboard.row.vpn')} v={<span className={'badge ' + TRI_VIEW[vpn].cls}>{TRI_VIEW[vpn].text}</span>} />
+          <KV k={t('dashboard.row.proxy')} v={<span className={'badge ' + TRI_VIEW[proxy].cls}>{TRI_VIEW[proxy].text}</span>} />
+          <KV k={t('dashboard.row.tor')} v={<span className={'badge ' + TRI_VIEW[tor].cls}>{TRI_VIEW[tor].text}</span>} />
           <KV
-            k="原生性"
+            k={t('dashboard.row.native')}
             v={nativeLabels.length ? <span className="badge badge-warn">{nativeLabels.join('，')}</span> : '—'}
           />
           <KV
-            k="DNS 泄露"
+            k={t('dashboard.row.dnsLeak')}
             v={dnsStatus ? <span className={'badge ' + (dnsStatus.includes('泄露') ? 'badge-bad' : 'badge-good')}>{dnsStatus}</span> : '—'}
           />
           <KV
-            k="WebRTC 泄露"
+            k={t('dashboard.row.webrtcLeak')}
             v={webrtcStatus ? <span className={'badge ' + (webrtcStatus.includes('泄露') ? 'badge-bad' : 'badge-good')}>{webrtcStatus}</span> : '—'}
           />
         </div>
@@ -231,17 +233,17 @@ export function Dashboard(): JSX.Element {
 
       <div style={{ marginTop: 26, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <button className="btn btn-primary" onClick={() => setExpanded(true)}>
-          查看完整检测结果 <ArrowRight size={17} />
+          {t('dashboard.viewFull')} <ArrowRight size={17} />
         </button>
         <button className="btn btn-ghost" onClick={run}>
-          <RotateCcw size={16} /> 重新检测
+          <RotateCcw size={16} /> {t('dashboard.rerun')}
         </button>
         <button
           className="btn btn-ghost"
           onClick={() => setExportOpen(true)}
           disabled={!startedAt || !finishedAt}
         >
-          <Download size={16} /> 导出报告
+          <Download size={16} /> {t('dashboard.exportReport')}
         </button>
       </div>
 
@@ -269,7 +271,7 @@ export function Dashboard(): JSX.Element {
           <MultiSource />
           <div style={{ marginTop: 20 }}>
             <button className="btn btn-text" onClick={() => setExpanded(false)}>
-              收起完整结果
+              {t('dashboard.collapseFull')}
             </button>
           </div>
         </div>

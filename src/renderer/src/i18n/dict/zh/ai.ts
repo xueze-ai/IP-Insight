@@ -1,0 +1,41 @@
+export const zhAi = {
+title: 'AI 网络环境分析',
+emptyDesc: '先完成一次综合检测，AI 将基于全部数据源的结果进行分析。',
+startDetection: '开始综合检测',
+notConfigured: '尚未配置 AI 提供商。检测数据已就绪（{n} 个数据源），请在设置中填写任一提供商的 API Key 后即可生成分析。',
+goSettings: '前往设置 AI 提供商',
+kicker: 'AI Analysis · 基于 {n} 个数据源',
+desc: '将全部标准化检测数据与多源交叉汇总发送给 {provider}{model}。AI 只进行分析、总结与解释；原始数据可在各页面逐源核对。',
+modelSuffix: '（{model}）',
+generate: '生成分析',
+analyzing: '分析中……',
+regenerate: '重新生成',
+copyReport: '复制报告',
+modelSettings: '模型与参数设置',
+failed: '分析失败',
+failedHint: '常见原因：API Key 无效 / 余额不足 / 模型名错误 / 网络不可达该提供商。可在设置中「测试连接」排查。',
+stage: {
+streaming: '正在输出…… 已用时 {elapsed}s · 已输出 {chars} 字',
+connected: '已连上提供商，等待模型首字…… 已用时 {elapsed}s（推理型模型如 deepseek-reasoner 的首字前思考时间较长；期间可继续使用其他页面，分析不会中断或重跑）',
+connecting: '正在连接提供商并发送检测数据…… 已用时 {elapsed}s'
+},
+reportHint: '报告将包含：结论速览（综合评分 / 原生性 / 风险等级 / VPN / Proxy / Tor / 住宅 / 数据中心 / 共享出口）、。多源冲突项会明确标注「当前无法确认」。切换页面不会丢失已生成的分析。',
+ask: {
+  title: '场景咨询',
+  desc: '想知道当前 IP 适不适合某个具体用途？点下方场景或直接提问，AI 会结合本次检测数据回答「行不行、差在哪、换什么节点」。',
+  scNetflix: '看 Netflix',
+  scGaming: '打游戏',
+  scChatgpt: '用 ChatGPT',
+  scEcommerce: '做跨境电商',
+  qNetflix: '这个 IP 看 Netflix 行不行？',
+  qGaming: '这个 IP 打游戏行不行？',
+  qChatgpt: '这个 IP 用 ChatGPT 行不行？',
+  qEcommerce: '这个 IP 做跨境电商行不行？',
+  placeholder: '例如：这个 IP 看 Netflix 行不行？',
+  button: '询问 AI',
+  asking: 'AI 思考中…',
+  waiting: 'AI 正在思考，请稍候…（已用时 {elapsed} 秒）',
+  streaming: '正在输出回答…（已用时 {elapsed} 秒）',
+  error: '询问失败：{message}'
+}
+}

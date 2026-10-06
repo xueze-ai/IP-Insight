@@ -4,6 +4,7 @@ import type { JSX, ReactNode } from 'react'
 import type { BlacklistEntry, NormalizedIPResult } from '@shared/types'
 import { useDetectionContext } from '../state/DetectionContext'
 import { requestNav } from '../state/navStore'
+import { tt, useLang } from '../i18n'
 import {
   aggregateField,
   exitGroups,
@@ -30,26 +31,41 @@ import {
 //  - 无数据项如实显示「无数据」，不伪造。
 // =============================================================
 
-/* 布尔共识 → 简短说明（不替用户拍板） */
+/* 布尔共识 → 简短说明（不替用户拍板）；文案走字典，经 tt 解析随语言切换 */
 function triDesc(c: TriConsensus, label: string): string {
+  const sep = tt('risk.tri.sep')
   const hit = c.perSource.filter((p) => p.value === true).map((p) => p.source)
   const clear = c.perSource.filter((p) => p.value === false).map((p) => p.source)
   const unknown = c.perSource.filter((p) => p.value === null).map((p) => p.source)
   switch (c.state) {
     case 'found':
-      return `${hit.join('、')} 判定命中${label}${c.mixed ? `；${unknown.join('、')} 未提供该字段` : ''}。`
+      return c.mixed
+        ? tt('risk.tri.foundMixed', { hit: hit.join(sep), label, unknown: unknown.join(sep) })
+        : tt('risk.tri.found', { hit: hit.join(sep), label })
     case 'clear':
       return c.mixed
-        ? `${clear.join('、')} 判定无${label}；${unknown.join('、')} 未提供该字段。`
-        : `全部 ${c.perSource.length} 个覆盖源均判定无${label}。`
+        ? tt('risk.tri.clearMixed', { clear: clear.join(sep), label, unknown: unknown.join(sep) })
+        : tt('risk.tri.clear', { n: c.perSource.length, label })
     case 'conflict':
-      return `多源判断不一致（${c.perSource
-        .map((p) => `${p.source}：${p.value === true ? '命中' : p.value === false ? '未命中' : '无法判断'}`)
-        .join('；')}），当前无法确认。`
+      return tt('risk.tri.conflict', {
+        detail: c.perSource
+          .map((p) =>
+            tt('risk.tri.conflictItem', {
+              source: p.source,
+              result:
+                p.value === true
+                  ? tt('risk.tri.hit')
+                  : p.value === false
+                    ? tt('risk.tri.miss')
+                    : tt('risk.tri.unknown')
+            })
+          )
+          .join(tt('risk.tri.itemSep'))
+      })
     case 'unknown':
-      return `各源均提供该字段但均无法判断（${unknown.join('、')}）。`
+      return tt('risk.tri.unknownAll', { unknown: unknown.join(sep) })
     default:
-      return `暂无数据源提供${label}判定。`
+      return tt('risk.tri.nodata', { label })
   }
 }
 
@@ -64,6 +80,7 @@ function ItemRow({
   desc: ReactNode
   expand?: ReactNode
 }): JSX.Element {
+  const { t } = useLang()
   const [open, setOpen] = useState(false)
   return (
     <div className="risk-item">
@@ -75,7 +92,7 @@ function ItemRow({
             className="btn-icon"
             style={{ width: 26, height: 26, marginLeft: 'auto' }}
             onClick={() => setOpen((v) => !v)}
-            title={open ? '收起' : '展开逐源 / 逐条明细'}
+            title={open ? t('risk.item.collapse') : t('risk.item.expand')}
           >
             <ChevronDown
               size={15}
@@ -98,6 +115,7 @@ function SrcList({
 }: {
   perSource: { source: string; value: boolean | null }[]
 }): JSX.Element {
+  const { t } = useLang()
   return (
     <div className="card card-subtle card-pad-sm">
       {perSource.map((p) => (
@@ -113,7 +131,7 @@ function SrcList({
                   : 'badge-neutral')
             }
           >
-            {p.value === true ? '命中' : p.value === false ? '未命中' : '无法判断'}
+            {p.value === true ? t('risk.tri.hit') : p.value === false ? t('risk.tri.miss') : t('risk.tri.unknown')}
           </span>
         </div>
       ))}
@@ -122,14 +140,15 @@ function SrcList({
 }
 
 function BlacklistTable({ list }: { list: BlacklistEntry[] }): JSX.Element {
+  const { t } = useLang()
   return (
     <div className="card card-subtle card-pad-sm">
       <div className="gping-head" style={{ gridTemplateColumns: '1fr 90px 70px 1fr 64px', marginTop: 0 }}>
-        <span>黑名单引擎</span>
-        <span>类别</span>
-        <span style={{ textAlign: 'right' }}>状态</span>
-        <span>返回码</span>
-        <span style={{ textAlign: 'right' }}>耗时</span>
+        <span>{t('risk.ti.table.engine')}</span>
+        <span>{t('risk.ti.table.category')}</span>
+        <span style={{ textAlign: 'right' }}>{t('risk.ti.table.status')}</span>
+        <span>{t('risk.ti.table.code')}</span>
+        <span style={{ textAlign: 'right' }}>{t('risk.ti.table.ms')}</span>
       </div>
       {list.map((b, i) => (
         <div
@@ -143,7 +162,7 @@ function BlacklistTable({ list }: { list: BlacklistEntry[] }): JSX.Element {
           <span className="caption">{b.category ?? '—'}</span>
           <span style={{ textAlign: 'right' }}>
             <span className={'badge ' + (b.listed ? 'badge-bad' : 'badge-good')}>
-              {b.listed ? '命中' : '未命中'}
+              {b.listed ? t('risk.tri.hit') : t('risk.tri.miss')}
             </span>
           </span>
           <span className="caption mono">{b.codes?.join(', ') || '—'}</span>
@@ -158,16 +177,20 @@ function BlacklistTable({ list }: { list: BlacklistEntry[] }): JSX.Element {
 
 /* ---------- 页面 ---------- */
 export function RiskAnalysis(): JSX.Element {
+  const { t, lang } = useLang()
   const { steps, run } = useDetectionContext()
   const all = successfulResults(steps)
   const { main, others } = exitGroups(all)
+  /* levelOf 自带中英名称，按当前语言取用 */
+  const levelName = (l: { cn: string; en: string }): string =>
+    lang === 'en' ? l.en : l.cn
 
   if (!main) {
     return (
       <div className="page" style={{ paddingTop: 120 }}>
-        <h1 className="h1">暂无风险数据</h1>
+        <h1 className="h1">{t('risk.empty.title')}</h1>
         <p className="muted" style={{ marginTop: 10 }}>
-          先完成一次综合检测，即可查看多源交叉后的风险分析。
+          {t('risk.empty.desc')}
         </p>
         <div style={{ marginTop: 24 }}>
           <button
@@ -177,7 +200,7 @@ export function RiskAnalysis(): JSX.Element {
               run()
             }}
           >
-            开始综合检测
+            {t('risk.startDetection')}
           </button>
         </div>
       </div>
@@ -218,17 +241,17 @@ export function RiskAnalysis(): JSX.Element {
 
   return (
     <div className="page" style={{ paddingTop: 40 }}>
-      <span className="dash-kicker">Risk Analysis · 多源交叉</span>
-      <h1 className="h1" style={{ marginTop: 6 }}>风险分析</h1>
+      <span className="dash-kicker">{t('risk.kicker')}</span>
+      <h1 className="h1" style={{ marginTop: 6 }}>{t('common.nav.risk')}</h1>
       <p className="muted small" style={{ marginTop: 8, maxWidth: 640, lineHeight: 1.75 }}>
-        综合 {rs.length} 个数据源对主出口{' '}
+        {t('risk.introBefore', { n: rs.length })}{' '}
         <span className="mono">{main.ip}</span>{' '}
-        的风险判断。各源口径不同，均已归一为 0–100 风险值并保留原始标注。
+        {t('risk.introAfter')}
       </p>
 
       {/* ---------- 综合风险等级 ---------- */}
       <div className="card" style={{ marginTop: 26 }}>
-        <div className="card-eyebrow">综合风险等级 · 主出口</div>
+        <div className="card-eyebrow">{t('risk.level.title')}</div>
         <div
           style={{
             marginTop: 10,
@@ -241,13 +264,13 @@ export function RiskAnalysis(): JSX.Element {
           {overallLevel ? (
             <>
               <span className="risk-level" style={{ color: overallLevel.color }}>
-                {overallLevel.cn}
+                {levelName(overallLevel)}
               </span>
-              <span className="caption">{overallLevel.en}</span>
-              <span className="caption mono">归一风险值 {overall?.toFixed(0)} / 100</span>
+              {lang !== 'en' && <span className="caption">{overallLevel.en}</span>}
+              <span className="caption mono">{t('risk.level.score', { v: overall?.toFixed(0) ?? '' })}</span>
             </>
           ) : (
-            <span className="badge badge-neutral">无数据</span>
+            <span className="badge badge-neutral">{t('risk.nodata')}</span>
           )}
         </div>
         <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -262,15 +285,20 @@ export function RiskAnalysis(): JSX.Element {
                     : undefined
                 }
               >
-                {s.risk != null ? `${levelOf(s.risk).cn} · ${s.risk.toFixed(0)}` : '—'}
+                {s.risk != null ? `${levelName(levelOf(s.risk))} · ${s.risk.toFixed(0)}` : '—'}
               </span>
             </span>
           ))}
         </div>
         <p className="caption" style={{ marginTop: 12, lineHeight: 1.7 }}>
-          {srcRisks.map((s) => `${s.name}：${s.rawLabel || '—'}（${s.scale}）`).join('；')}。
-          {hasLevelConflict &&
-            ' 各源风险等级存在分歧（口径与数值差异见上），综合等级取中位数，非确定结论。'}
+          {t('risk.level.scales', {
+            list: srcRisks
+              .map((s) =>
+                t('risk.level.scaleItem', { name: s.name, raw: s.rawLabel || '—', scale: s.scale })
+              )
+              .join(t('risk.tri.itemSep'))
+          })}
+          {hasLevelConflict && t('risk.level.conflictNote')}
         </p>
       </div>
 
@@ -285,14 +313,14 @@ export function RiskAnalysis(): JSX.Element {
             key={g.ip}
             style={{ marginTop: 12, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}
           >
-            <span className="badge badge-info">ChatGPT 分流出口</span>
+            <span className="badge badge-info">{t('risk.gpt.badge')}</span>
             <span className="mono small">{g.ip}</span>
             <span className="caption">
               {gr?.country ?? ''} {gr?.isp ?? ''} · {gr?.riskLabel ?? ''}
-              {gl ? ` · 归一风险 ${grisk?.toFixed(0)}（${gl.cn}）` : ''}
+              {gl ? ` · ${t('risk.gpt.risk', { v: grisk?.toFixed(0) ?? '', level: levelName(gl) })}` : ''}
             </span>
             <span className="caption" style={{ marginLeft: 'auto' }}>
-              IP 与主出口不同，不直接比较
+              {t('risk.gpt.note')}
             </span>
           </div>
         )
@@ -301,80 +329,91 @@ export function RiskAnalysis(): JSX.Element {
       {/* ---------- 威胁情报 ---------- */}
       <div className="card" style={{ marginTop: 20 }}>
         <div className="card-eyebrow" style={{ marginBottom: 4 }}>
-          Threat Intelligence · 威胁情报
+          {t('risk.ti.title')}
         </div>
         <ItemRow
-          name="黑名单 Blacklist"
+          name={t('risk.ti.blacklist')}
           badge={
             blacklist.length ? (
               <span className={'badge ' + (listed.length ? 'badge-bad' : 'badge-good')}>
-                {listed.length} / {blacklist.length} 家命中
+                {t('risk.ti.blacklistHit', { hit: listed.length, total: blacklist.length })}
               </span>
             ) : (
-              <span className="badge badge-neutral">无数据</span>
+              <span className="badge badge-neutral">{t('risk.nodata')}</span>
             )
           }
           desc={
             blacklist.length
               ? listed.length
-                ? `命中 ${listed.length} 家 DNSBL：${listed.map((b) => b.engine).join('、')}；展开查看逐家类别与返回码。`
-                : '12 家 DNSBL 均未命中（Net.Coffee 实测，单源）。'
-              : '本次检测未取得黑名单数据。'
+                ? t('risk.ti.blacklistDescHit', {
+                    n: listed.length,
+                    engines: listed.map((b) => b.engine).join(t('risk.tri.sep'))
+                  })
+                : t('risk.ti.blacklistDescClear')
+              : t('risk.ti.blacklistDescEmpty')
           }
           expand={blacklist.length ? <BlacklistTable list={blacklist} /> : undefined}
         />
         <ItemRow
-          name="滥用 Abuse"
+          name={t('risk.ti.abuse')}
           badge={<span className={'badge ' + TRI_VIEW[abuser.state].cls}>{TRI_VIEW[abuser.state].text}</span>}
           desc={
-            triDesc(abuser, '滥用标记') +
+            triDesc(abuser, tt('risk.tri.label.abuse')) +
             (intel?.abuser_level
-              ? ` 另：Net.Coffee 情报库历史滥用等级 ${intel.abuser_level}${intel.abuser_score_raw ? `（${intel.abuser_score_raw}）` : ''}，属历史评分口径，与当前实时标记不同。`
+              ? tt('risk.ti.abuseIntel', {
+                  level: intel.abuser_level,
+                  scorePart: intel.abuser_score_raw
+                    ? tt('risk.ti.abuseIntelScore', { raw: intel.abuser_score_raw })
+                    : ''
+                })
               : '')
           }
           expand={<SrcList perSource={abuser.perSource} />}
         />
         <ItemRow
-          name="垃圾邮件 Spam"
+          name={t('risk.ti.spam')}
           badge={
             blacklist.length ? (
               <span className={'badge ' + (spamListed.length ? 'badge-bad' : 'badge-good')}>
-                {spamListed.length ? `${spamListed.length} 家 Spam 列表命中` : '未命中 Spam 列表'}
+                {spamListed.length ? t('risk.ti.spamHit', { n: spamListed.length }) : t('risk.ti.spamClear')}
               </span>
             ) : (
-              <span className="badge badge-neutral">无数据</span>
+              <span className="badge badge-neutral">{t('risk.nodata')}</span>
             )
           }
           desc={
             spamListed.length
-              ? `命中 Spam 类列表：${spamListed.map((b) => b.engine).join('、')}（返回码 ${spamListed.map((b) => b.codes?.join('/')).join('、')}）。`
+              ? t('risk.ti.spamDescHit', {
+                  engines: spamListed.map((b) => b.engine).join(t('risk.tri.sep')),
+                  codes: spamListed.map((b) => b.codes?.join('/')).join(t('risk.tri.sep'))
+                })
               : blacklist.length
-                ? '未命中任何 Spam 类 DNSBL 列表。'
-                : '本次检测未取得黑名单数据。'
+                ? t('risk.ti.spamDescClear')
+                : t('risk.ti.blacklistDescEmpty')
           }
         />
         <ItemRow
-          name="欺诈 Fraud"
-          badge={<span className="badge badge-neutral">无数据</span>}
-          desc="当前四个数据源均未提供欺诈（Fraud）标签项；暂留空，后续接入提供该字段的数据源后自动显示。"
+          name={t('risk.ti.fraud')}
+          badge={<span className="badge badge-neutral">{t('risk.nodata')}</span>}
+          desc={t('risk.ti.fraudDesc')}
         />
         <ItemRow
-          name="威胁标签 Threats"
+          name={t('risk.ti.threats')}
           badge={
             intel?.threats ? (
               <span className={'badge ' + (intel.threats.length ? 'badge-bad' : 'badge-good')}>
-                {intel.threats.length ? `${intel.threats.length} 个威胁标签` : '无威胁标签'}
+                {intel.threats.length ? t('risk.ti.threatsHit', { n: intel.threats.length }) : t('risk.ti.threatsClear')}
               </span>
             ) : (
-              <span className="badge badge-neutral">无数据</span>
+              <span className="badge badge-neutral">{t('risk.nodata')}</span>
             )
           }
           desc={
             intel?.threats
               ? intel.threats.length
-                ? `Net.Coffee 情报库标记：${intel.threats.join('、')}（单源）。`
-                : 'Net.Coffee 情报库未标记任何威胁类型（单源，未交叉）。'
-              : '本次检测未取得情报库威胁标签。'
+                ? t('risk.ti.threatsDescHit', { tags: intel.threats.join(t('risk.tri.sep')) })
+                : t('risk.ti.threatsDescClear')
+              : t('risk.ti.threatsDescEmpty')
           }
         />
       </div>
@@ -382,30 +421,30 @@ export function RiskAnalysis(): JSX.Element {
       {/* ---------- 代理与匿名 ---------- */}
       <div className="card" style={{ marginTop: 20 }}>
         <div className="card-eyebrow" style={{ marginBottom: 4 }}>
-          Proxy & Anonymity · 代理与匿名
+          {t('risk.proxy.title')}
         </div>
         <ItemRow
-          name="VPN"
+          name={t('risk.proxy.vpn')}
           badge={<span className={'badge ' + TRI_VIEW[vpn.state].cls}>{TRI_VIEW[vpn.state].text}</span>}
-          desc={triDesc(vpn, 'VPN')}
+          desc={triDesc(vpn, tt('risk.tri.label.vpn'))}
           expand={<SrcList perSource={vpn.perSource} />}
         />
         <ItemRow
-          name="代理 Proxy"
+          name={t('risk.proxy.proxy')}
           badge={<span className={'badge ' + TRI_VIEW[proxy.state].cls}>{TRI_VIEW[proxy.state].text}</span>}
-          desc={triDesc(proxy, '代理')}
+          desc={triDesc(proxy, tt('risk.tri.label.proxy'))}
           expand={<SrcList perSource={proxy.perSource} />}
         />
         <ItemRow
-          name="Tor"
+          name={t('risk.proxy.tor')}
           badge={<span className={'badge ' + TRI_VIEW[tor.state].cls}>{TRI_VIEW[tor.state].text}</span>}
-          desc={triDesc(tor, 'Tor 出口')}
+          desc={triDesc(tor, tt('risk.tri.label.torExit'))}
           expand={<SrcList perSource={tor.perSource} />}
         />
         <ItemRow
-          name="爬虫 Crawler"
+          name={t('risk.proxy.crawler')}
           badge={<span className={'badge ' + TRI_VIEW[crawler.state].cls}>{TRI_VIEW[crawler.state].text}</span>}
-          desc={triDesc(crawler, '爬虫 / 蜘蛛特征')}
+          desc={triDesc(crawler, tt('risk.tri.label.crawler'))}
           expand={<SrcList perSource={crawler.perSource} />}
         />
       </div>
@@ -413,58 +452,60 @@ export function RiskAnalysis(): JSX.Element {
       {/* ---------- 原生性与共享 ---------- */}
       <div className="card" style={{ marginTop: 20 }}>
         <div className="card-eyebrow" style={{ marginBottom: 4 }}>
-          Nativeness · 原生性与共享
+          {t('risk.nat.title')}
         </div>
         <ItemRow
-          name="原生性"
+          name={t('risk.nat.native')}
           badge={
             native.state === 'nodata' ? (
-              <span className="badge badge-neutral">无数据</span>
+              <span className="badge badge-neutral">{t('risk.nodata')}</span>
             ) : native.state === 'agree' ? (
               <span className="badge badge-warn">{String(native.value)}</span>
             ) : (
-              <span className="badge badge-warn">多源不一致</span>
+              <span className="badge badge-warn">{t('risk.nat.conflict')}</span>
             )
           }
           desc={
             native.state === 'nodata'
-              ? '暂无数据源提供原生 / 广播判定。'
+              ? t('risk.nat.nativeEmpty')
               : native.state === 'agree'
-                ? `覆盖源一致判定：${String(native.value)}。`
-                : `各源判定存在差异：${native.perSource
-                    .filter((p) => p.value)
-                    .map((p) => `${p.source}：${String(p.value)}`)
-                    .join('；')}。`
+                ? t('risk.nat.nativeAgree', { v: String(native.value) })
+                : t('risk.nat.nativeConflict', {
+                    detail: native.perSource
+                      .filter((p) => p.value)
+                      .map((p) => t('risk.tri.conflictItem', { source: p.source, result: String(p.value) }))
+                      .join(t('risk.tri.itemSep'))
+                  })
           }
         />
         <ItemRow
-          name="共享出口"
+          name={t('risk.nat.shared')}
           badge={
             shared.state === 'nodata' ? (
-              <span className="badge badge-neutral">无数据</span>
+              <span className="badge badge-neutral">{t('risk.nodata')}</span>
             ) : (
               <span className="badge badge-neutral">{String(shared.value ?? '—')}</span>
             )
           }
           desc={
             shared.state === 'nodata'
-              ? '暂无数据源提供共享人数估计。'
-              : `Ping0 估计同一出口共享人数为 ${String(shared.value)}（单源区间估计，非精确值）。`
+              ? t('risk.nat.sharedEmpty')
+              : t('risk.nat.sharedDesc', { v: String(shared.value) })
           }
         />
         <ItemRow
-          name="人机流量比"
+          name={t('risk.nat.human')}
           badge={
             ippureRaw?.humanBot ? (
               <span className="badge badge-neutral">{ippureRaw.humanBot}</span>
             ) : (
-              <span className="badge badge-neutral">无数据</span>
+              <span className="badge badge-neutral">{t('risk.nodata')}</span>
             )
           }
           desc={
             ippureRaw?.humanPct
-              ? `IPPure 统计该 IP 段人机流量比 ${ippureRaw.humanPct}（单源统计口径）。`
-              : '本次检测未取得人机流量比。'
+              ? t('risk.nat.humanDesc', { v: ippureRaw.humanPct })
+              : t('risk.nat.humanEmpty')
           }
         />
       </div>
@@ -474,13 +515,13 @@ export function RiskAnalysis(): JSX.Element {
           className="btn btn-ghost"
           onClick={() => void window.ipInsight.openSource('https://ip.net.coffee/ip/')}
         >
-          <ExternalLink size={15} /> 查看 Net.Coffee 原始检测
+          <ExternalLink size={15} /> {t('risk.viewNetcoffee')}
         </button>
         <button
           className="btn btn-ghost"
           onClick={() => void window.ipInsight.openSource('https://ping0.cc/')}
         >
-          <ExternalLink size={15} /> 查看 Ping0 原始检测
+          <ExternalLink size={15} /> {t('risk.viewPing0')}
         </button>
       </div>
     </div>

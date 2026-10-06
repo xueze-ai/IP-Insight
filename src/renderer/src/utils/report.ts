@@ -12,6 +12,7 @@ import {
   TRI_VIEW,
   type FieldAggregate
 } from './aggregate'
+import { tt } from '../i18n'
 
 // =============================================================
 // 报告模型构建：把一次检测（当前会话或历史记录）整理成
@@ -21,23 +22,24 @@ import {
 function fv(agg: FieldAggregate<unknown>): string {
   if (agg.state === 'nodata') return '—'
   if (agg.state === 'agree') return String(agg.value)
-  return '多源不一致'
+  return tt('misc.report.inconsistent')
 }
 
+// label 用 getter 延迟求值，保持 { field, label } 结构不变。
 const FLAG_LABELS: { field: string; label: string }[] = [
   { field: 'vpn', label: 'VPN' },
   { field: 'proxy', label: 'Proxy' },
   { field: 'tor', label: 'Tor' },
   { field: 'crawler', label: 'Crawler' },
-  { field: 'residential', label: '住宅' },
-  { field: 'datacenter', label: '数据中心' },
-  { field: 'hosting', label: '托管' }
+  { field: 'residential', get label() { return tt('misc.report.flagLabels.residential') } },
+  { field: 'datacenter', get label() { return tt('misc.report.flagLabels.datacenter') } },
+  { field: 'hosting', get label() { return tt('misc.report.flagLabels.hosting') } }
 ]
 
 function flagText(v: boolean | null | undefined): string {
-  if (v === true) return '命中'
-  if (v === false) return '未命中'
-  return '未提供'
+  if (v === true) return tt('misc.flagText.hit')
+  if (v === false) return tt('misc.flagText.miss')
+  return tt('misc.flagText.na')
 }
 
 /* 单源人类可读明细行 */
@@ -46,54 +48,70 @@ function sourceRows(r: NormalizedIPResult): { label: string; value: string }[] {
   const push = (label: string, v?: string | null): void => {
     if (v != null && v !== '') rows.push({ label, value: v })
   }
-  push('公网 IP', r.ip)
-  push('ISP 运营商', r.isp)
+  push(tt('misc.report.rows.publicIp'), r.ip)
+  push(tt('misc.report.rows.isp'), r.isp)
   push('ASN', r.asn ?? undefined)
-  push('组织', r.organization)
+  push(tt('misc.report.rows.org'), r.organization)
   push(
-    '位置',
+    tt('misc.report.rows.location'),
     [r.country, r.region, r.city].filter(Boolean).join(' · ') || undefined
   )
   push(
-    '坐标',
+    tt('misc.report.rows.coords'),
     r.location?.lat != null && r.location?.lon != null
       ? `${r.location.lat}, ${r.location.lon}`
       : undefined
   )
-  push('时区', r.timezone)
+  push(tt('misc.report.rows.timezone'), r.timezone)
   push(
-    '网络类型',
+    tt('misc.report.rows.netType'),
     r.flags?.residential
-      ? '住宅'
+      ? tt('misc.netType.residential')
       : r.flags?.datacenter
-        ? '数据中心'
+        ? tt('misc.netType.datacenter')
         : r.flags?.hosting
-          ? '托管'
+          ? tt('misc.netType.hosting')
           : undefined
   )
-  push('风险口径', r.riskLabel)
-  push('原生性', r.nativeLabel)
-  push('共享出口', r.sharedUsers)
+  push(tt('misc.report.rows.risk'), r.riskLabel)
+  push(tt('misc.report.rows.native'), r.nativeLabel)
+  push(tt('misc.report.rows.shared'), r.sharedUsers)
   const flags = (r.flags ?? {}) as Record<string, boolean | null>
   const flagStr = FLAG_LABELS.map((f) => `${f.label} ${flagText(flags[f.field])}`).join('　')
-  rows.push({ label: '属性标签', value: flagStr })
+  rows.push({ label: tt('misc.report.rows.flags'), value: flagStr })
   if (r.blacklistSummary) {
     const names = (r.blacklist ?? [])
       .filter((b) => b.listed)
       .map((b) => b.engine)
       .join('、')
     push(
-      'DNSBL 黑名单',
-      `${r.blacklistSummary.listed}/${r.blacklistSummary.checked} 家命中${names ? `：${names}` : ''}`
+      tt('misc.report.rows.blacklist'),
+      tt('misc.report.blacklistValue', {
+        listed: r.blacklistSummary.listed,
+        checked: r.blacklistSummary.checked,
+        names: names ? tt('misc.report.blacklistNames', { names }) : ''
+      })
     )
   }
   if (r.dnsLeak?.status)
-    push('DNS 泄露', `${r.dnsLeak.status}${r.dnsLeak.exitIp ? `（出口 ${r.dnsLeak.exitIp}）` : ''}`)
+    push(
+      tt('misc.report.rows.dnsLeak'),
+      tt('misc.report.leakValue', {
+        status: r.dnsLeak.status,
+        exit: r.dnsLeak.exitIp ? tt('misc.report.leakExit', { ip: r.dnsLeak.exitIp }) : ''
+      })
+    )
   if (r.webRTCLeak?.status)
-    push('WebRTC 泄露', `${r.webRTCLeak.status}${r.webRTCLeak.exitIp ? `（出口 ${r.webRTCLeak.exitIp}）` : ''}`)
+    push(
+      tt('misc.report.rows.webrtcLeak'),
+      tt('misc.report.leakValue', {
+        status: r.webRTCLeak.status,
+        exit: r.webRTCLeak.exitIp ? tt('misc.report.leakExit', { ip: r.webRTCLeak.exitIp }) : ''
+      })
+    )
   if (r.globalPing?.length) {
     push(
-      '全球节点延迟',
+      tt('misc.report.rows.ping'),
       r.globalPing
         .map((g) => `${g.name ?? g.node} ${g.avgMs ?? g.latencyMs ?? '—'}ms`)
         .join('、')
@@ -101,13 +119,16 @@ function sourceRows(r: NormalizedIPResult): { label: string; value: string }[] {
   }
   if (r.downloadMbps != null || r.uploadMbps != null)
     push(
-      '本机测速',
-      `下载 ${r.downloadMbps != null ? r.downloadMbps.toFixed(1) : '—'} Mbps / 上传 ${r.uploadMbps != null ? r.uploadMbps.toFixed(1) : '—'} Mbps`
+      tt('misc.report.rows.speed'),
+      tt('misc.report.speedValue', {
+        down: r.downloadMbps != null ? r.downloadMbps.toFixed(1) : '—',
+        up: r.uploadMbps != null ? r.uploadMbps.toFixed(1) : '—'
+      })
     )
   if (r.fingerprint) {
     const fp = r.fingerprint
     push(
-      '浏览器指纹',
+      tt('misc.report.rows.fingerprint'),
       [
         fp.browser ? `${fp.browser} ${fp.browserVersion ?? ''}` : '',
         fp.os,
@@ -115,7 +136,7 @@ function sourceRows(r: NormalizedIPResult): { label: string; value: string }[] {
         fp.canvas ? `Canvas ${fp.canvas}` : '',
         fp.webgl ? `WebGL ${fp.webgl}` : '',
         fp.audio ? `Audio ${fp.audio}` : '',
-        fp.visitorId ? `综合 ${fp.visitorId}` : ''
+        fp.visitorId ? tt('misc.report.fpVisitor', { id: fp.visitorId }) : ''
       ]
         .filter(Boolean)
         .join(' · ') || undefined
@@ -123,7 +144,7 @@ function sourceRows(r: NormalizedIPResult): { label: string; value: string }[] {
   }
   if (r.scenarios?.length)
     push(
-      '场景评分',
+      tt('misc.report.rows.scenarios'),
       r.scenarios
         .map((s) => {
           const stars = Math.max(0, Math.min(5, s.stars))
@@ -141,15 +162,15 @@ function buildMatrix(results: NormalizedIPResult[]): {
 }[] {
   const ok = results.filter((r) => r.ok)
   const fields: { field: string; get: (r: NormalizedIPResult) => string | null }[] = [
-    { field: '公网 IP', get: (r) => r.ip ?? null },
+    { field: tt('misc.report.matrix.publicIp'), get: (r) => r.ip ?? null },
     { field: 'ISP', get: (r) => r.isp ?? null },
     { field: 'ASN', get: (r) => r.asn ?? null },
-    { field: '位置', get: (r) => [r.country, r.city].filter(Boolean).join(' · ') || null },
-    { field: '网络类型', get: (r) => (r.flags?.residential ? '住宅' : r.flags?.datacenter ? '数据中心' : r.flags?.hosting ? '托管' : null) },
+    { field: tt('misc.report.matrix.location'), get: (r) => [r.country, r.city].filter(Boolean).join(' · ') || null },
+    { field: tt('misc.report.matrix.netType'), get: (r) => (r.flags?.residential ? tt('misc.netType.residential') : r.flags?.datacenter ? tt('misc.netType.datacenter') : r.flags?.hosting ? tt('misc.netType.hosting') : null) },
     { field: 'VPN', get: (r) => (r.flags && 'vpn' in r.flags ? flagText(r.flags.vpn ?? null) : null) },
     { field: 'Proxy', get: (r) => (r.flags && 'proxy' in r.flags ? flagText(r.flags.proxy ?? null) : null) },
     { field: 'Tor', get: (r) => (r.flags && 'tor' in r.flags ? flagText(r.flags.tor ?? null) : null) },
-    { field: '风险口径', get: (r) => r.riskLabel ?? null }
+    { field: tt('misc.report.matrix.risk'), get: (r) => r.riskLabel ?? null }
   ]
   return fields.map((f) => ({
     field: f.field,
@@ -172,23 +193,23 @@ export function buildReportModel(input: ReportInput): ReportModel {
   const mrs = main?.rs ?? ok
 
   const netType = aggregateField(mrs, (r) => {
-    if (r.flags?.residential) return '住宅'
-    if (r.flags?.datacenter) return '数据中心'
-    if (r.flags?.hosting) return '托管'
+    if (r.flags?.residential) return tt('misc.netType.residential')
+    if (r.flags?.datacenter) return tt('misc.netType.datacenter')
+    if (r.flags?.hosting) return tt('misc.netType.hosting')
     return null
   })
 
   const fields: { label: string; value: string }[] = [
-    { label: 'ISP 运营商', value: fv(aggregateField(mrs, (r) => r.isp)) },
+    { label: tt('misc.report.summary.isp'), value: fv(aggregateField(mrs, (r) => r.isp)) },
     { label: 'ASN', value: fv(aggregateField(mrs, (r) => r.asn)) },
     { label: 'Organization', value: fv(aggregateField(mrs, (r) => r.organization)) },
-    { label: '网络类型', value: fv(netType) },
-    { label: '国家 / 地区', value: fv(aggregateField(mrs, (r) => r.country)) },
-    { label: '省 / 州', value: fv(aggregateField(mrs, (r) => r.region)) },
-    { label: '城市', value: fv(aggregateField(mrs, (r) => r.city)) },
-    { label: '时区', value: fv(aggregateField(mrs, (r) => r.timezone)) },
+    { label: tt('misc.report.summary.netType'), value: fv(netType) },
+    { label: tt('misc.report.summary.country'), value: fv(aggregateField(mrs, (r) => r.country)) },
+    { label: tt('misc.report.summary.region'), value: fv(aggregateField(mrs, (r) => r.region)) },
+    { label: tt('misc.report.summary.city'), value: fv(aggregateField(mrs, (r) => r.city)) },
+    { label: tt('misc.report.summary.timezone'), value: fv(aggregateField(mrs, (r) => r.timezone)) },
     {
-      label: '经纬度',
+      label: tt('misc.report.summary.coords'),
       value: fv(
         aggregateField(mrs, (r) =>
           r.location?.lat != null && r.location?.lon != null
@@ -198,24 +219,27 @@ export function buildReportModel(input: ReportInput): ReportModel {
       )
     },
     { label: 'VPN', value: TRI_VIEW[flagConsensus(ok, 'vpn').state].text },
-    { label: '代理 Proxy', value: TRI_VIEW[flagConsensus(ok, 'proxy').state].text },
+    { label: tt('misc.report.summary.proxy'), value: TRI_VIEW[flagConsensus(ok, 'proxy').state].text },
     { label: 'Tor', value: TRI_VIEW[flagConsensus(ok, 'tor').state].text },
-    { label: '爬虫 Crawler', value: TRI_VIEW[flagConsensus(ok, 'crawler').state].text },
+    { label: tt('misc.report.summary.crawler'), value: TRI_VIEW[flagConsensus(ok, 'crawler').state].text },
     {
-      label: '原生性',
+      label: tt('misc.report.summary.native'),
       value: fv(aggregateField(mrs, (r) => r.nativeLabel))
     }
   ]
 
   const gpt = ok.find((r) => r.provider.id === 'netcoffee_gpt')
-  if (gpt?.dnsLeak?.status) fields.push({ label: 'DNS 泄露', value: gpt.dnsLeak.status })
+  if (gpt?.dnsLeak?.status) fields.push({ label: tt('misc.report.summary.dnsLeak'), value: gpt.dnsLeak.status })
   if (gpt?.webRTCLeak?.status)
-    fields.push({ label: 'WebRTC 泄露', value: gpt.webRTCLeak.status })
+    fields.push({ label: tt('misc.report.summary.webrtcLeak'), value: gpt.webRTCLeak.status })
   const nc = ok.find((r) => r.provider.id === 'netcoffee')
   if (nc?.blacklistSummary)
     fields.push({
-      label: 'DNSBL 黑名单',
-      value: `${nc.blacklistSummary.listed} / ${nc.blacklistSummary.checked} 家命中`
+      label: tt('misc.report.summary.blacklist'),
+      value: tt('misc.report.summary.blacklistValue', {
+        listed: nc.blacklistSummary.listed,
+        checked: nc.blacklistSummary.checked
+      })
     })
 
   const sources: ReportSource[] = input.sources.map((s) => {
@@ -227,11 +251,11 @@ export function buildReportModel(input: ReportInput): ReportModel {
       ip: r?.ip,
       riskLabel: r?.riskLabel,
       netType: r?.flags?.residential
-        ? '住宅'
+        ? tt('misc.netType.residential')
         : r?.flags?.datacenter
-          ? '数据中心'
+          ? tt('misc.netType.datacenter')
           : r?.flags?.hosting
-            ? '托管'
+            ? tt('misc.netType.hosting')
             : undefined,
       durationMs: s.durationMs
     }

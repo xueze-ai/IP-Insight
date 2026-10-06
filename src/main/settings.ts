@@ -23,7 +23,8 @@ export function defaultSettings(): AppSettings {
     appearance: {
       theme: 'light',
       sidebarCollapsedByDefault: false,
-      fontSize: 'standard'
+      fontSize: 'standard',
+      language: 'zh'
     },
     ai: {
       current: 'qwen',

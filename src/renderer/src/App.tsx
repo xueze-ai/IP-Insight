@@ -11,9 +11,11 @@ import { AiAnalysis } from './pages/AiAnalysis'
 import { Settings } from './pages/Settings'
 import { DetectionProvider } from './state/DetectionContext'
 import { subscribeNav } from './state/navStore'
+import { useLang } from './i18n'
 import type { PageId } from './navigation'
 
 export default function App(): JSX.Element {
+  const { t } = useLang()
   const [page, setPage] = useState<PageId>('dashboard')
   const [settingsSection, setSettingsSection] =
     useState<'appearance' | 'ai' | 'detection' | 'privacy' | 'about'>('appearance')
@@ -55,7 +57,7 @@ export default function App(): JSX.Element {
             className="badge badge-warn"
             style={{ position: 'fixed', top: 10, right: 56, zIndex: 80, boxShadow: 'var(--shadow-md)' }}
           >
-            Demo 模式 · 样例数据（浏览器预览）
+            {t('common.demoBadge')}
           </div>
         )}
         {page === 'dashboard' ? (

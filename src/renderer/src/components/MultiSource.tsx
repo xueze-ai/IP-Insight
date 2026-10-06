@@ -11,6 +11,8 @@ import type { JSX } from 'react'
 import type { NormalizedIPResult } from '@shared/types'
 import type { SourceStep } from '../hooks/useDetection'
 import { useDetectionContext } from '../state/DetectionContext'
+import { useLang } from '../i18n'
+import type { TKey } from '../i18n'
 
 /* ---------- 数据完整度（真实填充率，不伪造） ---------- */
 function completeness(r: NormalizedIPResult): number {
@@ -46,12 +48,12 @@ function completeness(r: NormalizedIPResult): number {
 }
 
 /* ---------- 多源一致性维度 ---------- */
-const DIMS: { key: string; label: string }[] = [
-  { key: 'residential', label: '住宅 IP' },
-  { key: 'datacenter', label: '数据中心' },
-  { key: 'vpn', label: 'VPN' },
-  { key: 'proxy', label: '代理 Proxy' },
-  { key: 'tor', label: 'Tor' }
+const DIMS: { key: string; labelKey: TKey }[] = [
+  { key: 'residential', labelKey: 'components.multiSource.dims.residential' },
+  { key: 'datacenter', labelKey: 'components.multiSource.dims.datacenter' },
+  { key: 'vpn', labelKey: 'components.multiSource.dims.vpn' },
+  { key: 'proxy', labelKey: 'components.multiSource.dims.proxy' },
+  { key: 'tor', labelKey: 'components.multiSource.dims.tor' }
 ]
 
 type DimState = 'agree' | 'conflict' | 'nodata'
@@ -78,12 +80,6 @@ function groupByExit(results: NormalizedIPResult[]): Map<string, NormalizedIPRes
   return m
 }
 
-function exitLabel(rs: NormalizedIPResult[]): string {
-  const ids = rs.map((r) => r.provider.id)
-  if (ids.includes('netcoffee_gpt')) return 'ChatGPT 出口'
-  return '其他出口'
-}
-
 function ExitGroupCard({
   ip,
   rs
@@ -91,40 +87,45 @@ function ExitGroupCard({
   ip: string
   rs: NormalizedIPResult[]
 }): JSX.Element {
+  const { t } = useLang()
   const r0 = rs[0]
+  const ids = rs.map((r) => r.provider.id)
+  const exitName = ids.includes('netcoffee_gpt')
+    ? t('components.multiSource.exitChatGpt')
+    : t('components.multiSource.exitOther')
   const type = r0.flags?.residential
-    ? '住宅'
+    ? t('components.multiSource.typeResidential')
     : r0.flags?.datacenter
-      ? '数据中心'
-      : '类型未判定'
+      ? t('components.multiSource.typeDatacenter')
+      : t('components.multiSource.typeUnknown')
   const loc = [r0.country, r0.region, r0.city].filter(Boolean).join(' ')
   return (
     <div className="card card-subtle">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div className="card-eyebrow">{exitLabel(rs)} · 独立画像</div>
-        <span className="badge badge-neutral">{rs.length} 源覆盖</span>
+        <div className="card-eyebrow">{t('components.multiSource.exitTitle', { label: exitName })}</div>
+        <span className="badge badge-neutral">{t('components.multiSource.sourcesCovered', { n: rs.length })}</span>
       </div>
       <div className="mono" style={{ marginTop: 12, fontSize: 19, fontWeight: 600 }}>
         {ip}
       </div>
       <div className="small two" style={{ marginTop: 8, lineHeight: 1.7 }}>
         {type} ·{' '}
-        {r0.riskLabel ?? (r0.riskScore != null ? `评分 ${r0.riskScore}` : '无风险评分')}
+        {r0.riskLabel ?? (r0.riskScore != null ? t('components.multiSource.riskScore', { score: r0.riskScore }) : t('components.multiSource.noRiskScore'))}
         <br />
-        {loc || '无位置信息'}
+        {loc || t('components.multiSource.noLocation')}
       </div>
       <div className="caption" style={{ marginTop: 10, lineHeight: 1.6 }}>
-        该出口 IP 与主出口不同，其类型判定不与主出口直接比较；
+        {t('components.multiSource.exitNoteMain')}
         {rs.length === 1
-          ? '仅 1 个数据源覆盖，无法多源交叉验证。'
-          : '已在覆盖该出口的源之间进行比较。'}
+          ? t('components.multiSource.exitNoteSingle')
+          : t('components.multiSource.exitNoteMulti')}
       </div>
       <div style={{ marginTop: 12 }}>
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => void window.ipInsight.openSource(r0.provider.sourceUrl)}
         >
-          <ExternalLink size={15} /> 查看原网站
+          <ExternalLink size={15} /> {t('components.multiSource.viewSource')}
         </button>
       </div>
     </div>
@@ -133,15 +134,16 @@ function ExitGroupCard({
 
 /* ---------- 单个数据源卡片 ---------- */
 function ProviderCard({ s }: { s: SourceStep }): JSX.Element {
+  const { t } = useLang()
   const [showRaw, setShowRaw] = useState(false)
   const r = s.result
   const ok = s.status === 'ok' && r && r.ok
 
   const type = r?.flags?.residential
-    ? '住宅'
+    ? t('components.multiSource.typeResidential')
     : r?.flags?.datacenter
-      ? '数据中心'
-      : '类型未判定'
+      ? t('components.multiSource.typeDatacenter')
+      : t('components.multiSource.typeUnknown')
   const loc = [r?.country, r?.region, r?.city].filter(Boolean).join(' ')
   const comp = r ? completeness(r) : 0
 
@@ -151,11 +153,11 @@ function ProviderCard({ s }: { s: SourceStep }): JSX.Element {
         <span className="provider-name">{s.name}</span>
         {ok ? (
           <span className="badge badge-good">
-            <CheckCircle2 size={13} /> 检测成功
+            <CheckCircle2 size={13} /> {t('components.multiSource.badgeOk')}
           </span>
         ) : (
           <span className="badge badge-bad">
-            <XCircle size={13} /> 不可用
+            <XCircle size={13} /> {t('components.multiSource.badgeBad')}
           </span>
         )}
       </div>
@@ -163,22 +165,22 @@ function ProviderCard({ s }: { s: SourceStep }): JSX.Element {
       {ok && r ? (
         <>
           <div className="provider-meta">
-            <span>耗时 {s.durationMs != null ? (s.durationMs / 1000).toFixed(1) : '—'}s</span>
-            <span>数据完整度 {comp}%</span>
+            <span>{t('components.multiSource.duration', { sec: s.durationMs != null ? (s.durationMs / 1000).toFixed(1) : '—' })}</span>
+            <span>{t('components.multiSource.completeness', { pct: comp })}</span>
           </div>
           <div className="provider-main">
-            <div>{type} · {r.riskLabel ?? (r.riskScore != null ? `评分 ${r.riskScore}` : '无风险评分')}</div>
-            <div className="muted" style={{ marginTop: 3 }}>{loc || '无位置信息'}</div>
+            <div>{type} · {r.riskLabel ?? (r.riskScore != null ? t('components.multiSource.riskScore', { score: r.riskScore }) : t('components.multiSource.noRiskScore'))}</div>
+            <div className="muted" style={{ marginTop: 3 }}>{loc || t('components.multiSource.noLocation')}</div>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <button className="btn btn-ghost btn-sm" onClick={() => setShowRaw((v) => !v)}>
-              <ChevronDown size={15} /> {showRaw ? '收起原始结果' : '原始结果'}
+              <ChevronDown size={15} /> {showRaw ? t('components.multiSource.rawHide') : t('components.multiSource.rawShow')}
             </button>
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => void window.ipInsight.openSource(r.provider.sourceUrl)}
             >
-              <ExternalLink size={15} /> 查看原网站
+              <ExternalLink size={15} /> {t('components.multiSource.viewSource')}
             </button>
           </div>
           {showRaw && (
@@ -202,7 +204,7 @@ function ProviderCard({ s }: { s: SourceStep }): JSX.Element {
         </>
       ) : (
         <div className="provider-main muted">
-          {r?.error || s.result?.error || '该数据源暂时不可用（超时 / 访问受限 / 需人工验证）。'}
+          {r?.error || s.result?.error || t('components.multiSource.sourceUnavailable')}
           <div style={{ marginTop: 10 }}>
             <button
               className="btn btn-ghost btn-sm"
@@ -212,7 +214,7 @@ function ProviderCard({ s }: { s: SourceStep }): JSX.Element {
                 )
               }
             >
-              <ExternalLink size={15} /> 手动打开原网站
+              <ExternalLink size={15} /> {t('components.multiSource.openSourceManual')}
             </button>
           </div>
         </div>
@@ -233,6 +235,7 @@ function sourceUrlFallback(key: string): string {
 
 /* ---------- 多源检测区块 ---------- */
 export function MultiSource(): JSX.Element {
+  const { t } = useLang()
   const { steps } = useDetectionContext()
   const results = steps
     .map((s) => s.result)
@@ -249,7 +252,8 @@ export function MultiSource(): JSX.Element {
 
   const mainResults = main ? main.rs : []
   const dimResults = DIMS.map((d) => ({
-    ...d,
+    key: d.key,
+    label: t(d.labelKey),
     state: dimState(mainResults, d.key)
   }))
   const judgeable = dimResults.filter((d) => d.state !== 'nodata')
@@ -263,7 +267,7 @@ export function MultiSource(): JSX.Element {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
       {/* 主出口多源一致性 */}
       <div className="card" id="consistency-card">
-        <div className="card-eyebrow">多源一致性 · 主出口</div>
+        <div className="card-eyebrow">{t('components.multiSource.consistencyTitle')}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 28, marginTop: 16 }}>
           <div style={{ flex: '0 0 auto' }}>
             <div
@@ -273,16 +277,16 @@ export function MultiSource(): JSX.Element {
               {percent}%
             </div>
             <div className="caption" style={{ marginTop: 6 }}>
-              {mainResults.length} 源覆盖主出口
+              {t('components.multiSource.mainExitCovered', { n: mainResults.length })}
             </div>
           </div>
           <div style={{ flex: 1 }}>
             <div className="mono small" style={{ marginBottom: 8 }}>{main?.ip}</div>
             <div className="small two" style={{ lineHeight: 1.7 }}>
-              {judgeable.length} 个可判断维度中，{agrees} 个在覆盖源之间结论一致。
+              {t('components.multiSource.consistencySummary', { total: judgeable.length, agrees })}
               {hasConflict
-                ? '存在分歧的项目当前无法确认，已如实标注。'
-                : '可判断维度未发现分歧。'}
+                ? t('components.multiSource.hasConflict')
+                : t('components.multiSource.noConflict')}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', marginTop: 14, gap: 9 }}>
               {dimResults.map((d) => (
@@ -292,11 +296,11 @@ export function MultiSource(): JSX.Element {
                 >
                   <span className="small" style={{ color: 'var(--text-2)' }}>{d.label}</span>
                   {d.state === 'agree' ? (
-                    <span className="badge badge-good"><Check size={13} /> 一致</span>
+                    <span className="badge badge-good"><Check size={13} /> {t('components.multiSource.dimAgree')}</span>
                   ) : d.state === 'conflict' ? (
-                    <span className="badge badge-warn"><AlertTriangle size={13} /> 存在分歧</span>
+                    <span className="badge badge-warn"><AlertTriangle size={13} /> {t('components.multiSource.dimConflict')}</span>
                   ) : (
-                    <span className="badge badge-neutral">无数据</span>
+                    <span className="badge badge-neutral">{t('components.multiSource.dimNoData')}</span>
                   )}
                 </div>
               ))}
@@ -312,7 +316,7 @@ export function MultiSource(): JSX.Element {
 
       {/* 四源卡片 */}
       <div id="providers-block">
-        <div className="card-eyebrow" style={{ marginBottom: 12 }}>多源检测结果</div>
+        <div className="card-eyebrow" style={{ marginBottom: 12 }}>{t('components.multiSource.resultsTitle')}</div>
         <div className="providers-grid">
           {steps.map((s) => (
             <ProviderCard key={s.key} s={s} />

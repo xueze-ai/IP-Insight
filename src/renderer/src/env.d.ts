@@ -1,6 +1,7 @@
 import type {
   AiAnalyzeRequest,
   AiAnalyzeResponse,
+  AiAskRequest,
   AiProviderId,
   AiTestResponse,
   AppSettings,
@@ -35,6 +36,8 @@ export interface IPInsightAPI {
   analyzeAi: (payload: AiAnalyzeRequest) => Promise<AiAnalyzeResponse>
   onAiChunk: (cb: (delta: string) => void) => () => void
   onAiStage: (cb: (stage: string) => void) => () => void
+  askAi: (payload: AiAskRequest) => Promise<AiAnalyzeResponse>
+  onAskChunk: (cb: (delta: string) => void) => () => void
   listHistory: () => Promise<HistoryListResponse>
   getHistory: (id: string) => Promise<HistoryRecordResponse>
   saveHistory: (record: HistoryRecord) => Promise<HistorySaveResponse>

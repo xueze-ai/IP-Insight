@@ -1,5 +1,6 @@
 import type { NormalizedIPResult } from '@shared/types'
 import type { SourceStep } from '../hooks/useDetection'
+import { tt } from '../i18n'
 
 // 多源字段聚合工具：诚实口径，一致才给单一值，分歧则保留每源值，不替用户拍板。
 
@@ -80,12 +81,14 @@ export function flagConsensus(
   return { state: 'unknown', mixed: false, perSource }
 }
 
+// text 用 getter 延迟求值：tt 读取调用时的当前语言，
+// 保持 TRI_VIEW[state].text / .cls 的访问方式不变（Dashboard / RiskAnalysis 照常使用）。
 export const TRI_VIEW: Record<Tri, { text: string; cls: string }> = {
-  found: { text: '发现', cls: 'badge-bad' },
-  clear: { text: '未发现', cls: 'badge-good' },
-  conflict: { text: '多源存在分歧', cls: 'badge-warn' },
-  unknown: { text: '无法判断', cls: 'badge-neutral' },
-  nodata: { text: '无数据', cls: 'badge-neutral' }
+  found: { get text() { return tt('misc.tri.found') }, cls: 'badge-bad' },
+  clear: { get text() { return tt('misc.tri.clear') }, cls: 'badge-good' },
+  conflict: { get text() { return tt('misc.tri.conflict') }, cls: 'badge-warn' },
+  unknown: { get text() { return tt('misc.tri.unknown') }, cls: 'badge-neutral' },
+  nodata: { get text() { return tt('misc.tri.nodata') }, cls: 'badge-neutral' }
 }
 
 // ------------ 风险等级归一（各源口径 → 0-100 风险值，越高越危险） ------------
@@ -96,10 +99,10 @@ export interface LevelInfo {
 }
 
 export function levelOf(risk: number): LevelInfo {
-  if (risk < 25) return { cn: '低风险', en: 'Low Risk', color: 'var(--risk-low)' }
-  if (risk < 50) return { cn: '中风险', en: 'Medium Risk', color: 'var(--risk-medium)' }
-  if (risk < 75) return { cn: '高风险', en: 'High Risk', color: 'var(--risk-high)' }
-  return { cn: '严重', en: 'Critical', color: 'var(--risk-critical)' }
+  if (risk < 25) return { cn: tt('misc.riskLevels.low'), en: 'Low Risk', color: 'var(--risk-low)' }
+  if (risk < 50) return { cn: tt('misc.riskLevels.medium'), en: 'Medium Risk', color: 'var(--risk-medium)' }
+  if (risk < 75) return { cn: tt('misc.riskLevels.high'), en: 'High Risk', color: 'var(--risk-high)' }
+  return { cn: tt('misc.riskLevels.critical'), en: 'Critical', color: 'var(--risk-critical)' }
 }
 
 export interface SrcRisk {
@@ -117,7 +120,7 @@ export function sourceRisks(results: NormalizedIPResult[]): SrcRisk[] {
         return {
           name: r.provider.name,
           risk: r.riskScore != null ? 100 - r.riskScore : null,
-          scale: '信任分 · 越高越安全',
+          scale: tt('misc.riskScale.trust'),
           rawLabel: r.riskLabel ?? ''
         }
       }
@@ -125,7 +128,7 @@ export function sourceRisks(results: NormalizedIPResult[]): SrcRisk[] {
         return {
           name: r.provider.name,
           risk: r.riskScore ?? null,
-          scale: '风控值 · 越高越危险',
+          scale: tt('misc.riskScale.ping0'),
           rawLabel: r.riskLabel ?? ''
         }
       }
@@ -133,7 +136,7 @@ export function sourceRisks(results: NormalizedIPResult[]): SrcRisk[] {
         return {
           name: r.provider.name,
           risk: r.riskScore ?? null,
-          scale: 'IPPure 系数 · 越高越危险',
+          scale: tt('misc.riskScale.ippure'),
           rawLabel: r.riskLabel ?? ''
         }
       }
@@ -150,35 +153,58 @@ export function median(nums: number[]): number | null {
 }
 
 // ------------ 多源交叉汇总文本（AI 提示词 / 报告共用） ------------
+// label 用 getter 延迟求值，保持 { field, label } 结构不变。
 export const FLAG_FIELDS: { field: string; label: string }[] = [
   { field: 'vpn', label: 'VPN' },
-  { field: 'proxy', label: '代理 Proxy' },
+  { field: 'proxy', get label() { return tt('misc.report.summary.proxy') } },
   { field: 'tor', label: 'Tor' },
-  { field: 'crawler', label: '爬虫 Crawler' },
-  { field: 'residential', label: '住宅 IP' },
-  { field: 'datacenter', label: '数据中心' }
+  { field: 'crawler', get label() { return tt('misc.report.summary.crawler') } },
+  { field: 'residential', get label() { return tt('components.multiSource.dims.residential') } },
+  { field: 'datacenter', get label() { return tt('components.multiSource.dims.datacenter') } }
 ]
 
 export function buildConsistencyText(results: NormalizedIPResult[]): string {
   const lines: string[] = []
   const { main, others } = exitGroups(results)
-  lines.push(`主出口：${main?.ip ?? '未知'}（${main?.rs.length ?? 0} 个源覆盖）`)
+  lines.push(
+    tt('misc.consistency.mainExit', {
+      ip: main?.ip ?? tt('misc.consistency.unknown'),
+      n: main?.rs.length ?? 0
+    })
+  )
   for (const o of others) {
     lines.push(
-      `其他出口：${o.ip}（${o.rs.map((r) => r.provider.name).join('、')}；与主出口 IP 不同，不直接比较）`
+      tt('misc.consistency.otherExit', {
+        ip: o.ip,
+        names: o.rs.map((r) => r.provider.name).join('、')
+      })
     )
   }
   for (const f of FLAG_FIELDS) {
     const c = flagConsensus(results, f.field)
     const detail =
       c.state === 'conflict'
-        ? `（${c.perSource
-            .map((p) => `${p.source}：${p.value === true ? '命中' : p.value === false ? '未命中' : '无法判断'}`)
-            .join('；')}）`
+        ? tt('misc.consistency.conflictDetail', {
+            items: c.perSource
+              .map((p) =>
+                tt('misc.consistency.sourceVerdict', {
+                  source: p.source,
+                  verdict:
+                    p.value === true
+                      ? tt('misc.flagText.hit')
+                      : p.value === false
+                        ? tt('misc.flagText.miss')
+                        : tt('misc.tri.unknown')
+                })
+              )
+              .join('；')
+          })
         : ''
-    lines.push(`${f.label}：${TRI_VIEW[c.state].text}${detail}`)
+    lines.push(
+      tt('misc.consistency.flagLine', { label: f.label, text: TRI_VIEW[c.state].text, detail })
+    )
   }
-  lines.push('注：Net.Coffee 与 IPPure 后端部分同源；Ping0 相对独立。')
+  lines.push(tt('misc.consistency.note'))
   return lines.join('\n')
 }
 

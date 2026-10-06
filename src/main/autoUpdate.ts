@@ -2,6 +2,7 @@ import { app, BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import type { UpdateStatus } from '@shared/types'
 import { getSettings } from './settings'
+import { mt } from './i18n'
 
 // =============================================================
 // 自动更新：electron-updater + GitHub Releases。
@@ -22,6 +23,26 @@ function send(status: UpdateStatus): void {
   } catch {
     /* 窗口已关闭时忽略 */
   }
+}
+
+/**
+ * 把 electron-updater 的原始报错（常含完整 URL、HTTP 头、堆栈，不宜直接展示）
+ * 翻译成面向用户的友好文案；原始信息只打到控制台方便排查。
+ */
+export function friendlyUpdateError(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e)
+  console.log('[update] raw error:', raw)
+  if (/latest\.yml/i.test(raw) || /\b404\b/.test(raw)) {
+    return mt('updateNoRelease')
+  }
+  if (
+    /ENOTFOUND|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN|fetch failed|getaddrinfo|network|ERR_INTERNET_DISCONNECTED|ERR_CONNECTION_/i.test(
+      raw
+    )
+  ) {
+    return mt('updateNetworkError')
+  }
+  return mt('updateCheckFailed')
 }
 
 export function initAutoUpdate(getWindow: () => BrowserWindow | null): void {
@@ -52,9 +73,8 @@ export function initAutoUpdate(getWindow: () => BrowserWindow | null): void {
     send({ state: 'downloaded', version: info.version })
   })
   autoUpdater.on('error', (err) => {
-    const message = err instanceof Error ? err.message : String(err)
-    console.log('[update] error', message)
-    send({ state: 'error', message })
+    // 原始报错只记日志；推给界面的是友好文案
+    send({ state: 'error', message: friendlyUpdateError(err) })
   })
 
   if (!app.isPackaged) {
@@ -77,15 +97,13 @@ export function initAutoUpdate(getWindow: () => BrowserWindow | null): void {
 /** 手动触发检查更新（渲染层「检查更新」按钮）。 */
 export async function checkForUpdates(): Promise<void> {
   if (!app.isPackaged) {
-    send({ state: 'error', message: '当前为开发模式，自动更新仅在打包版本中可用' })
+    send({ state: 'error', message: mt('updateDevMode') })
     return
   }
   try {
     await autoUpdater.checkForUpdates()
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
-    console.log('[update] check failed', message)
-    send({ state: 'error', message })
+    send({ state: 'error', message: friendlyUpdateError(e) })
   }
 }
 

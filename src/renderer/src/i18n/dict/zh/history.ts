@@ -1,0 +1,23 @@
+export const zhHistory = {
+  kicker: 'History · 本地保存',
+  clearAll: '清空全部',
+  confirmClear: '确定清空全部历史记录？该操作不可撤销。',
+  desc: '每次综合检测完成后自动保存在本机（时间 / IP / 数据源 / 完整结果），保留天数与开关在「设置 → 数据与隐私」中配置。',
+  disabled: '历史记录已关闭',
+  disabledDesc: '新的检测将不再写入历史；以下为关闭前保存的记录。',
+  goEnable: '去设置开启',
+  empty: '暂无历史记录。完成一次综合检测后会自动保存在这里。',
+  goDetect: '去综合检测',
+  noRiskData: '无风险数据',
+  today: '今天',
+  yesterday: '昨天',
+  sourceCount: '{ok}/{total} 源',
+  withAi: ' · 含 AI 分析',
+  ok: '成功',
+  fail: '失败',
+  detectTime: '检测时间：',
+  riskValue: ' · 归一风险值 {v}/100',
+  loadPage: '载入分析页',
+  exportReport: '导出报告',
+  confirmDelete: '删除这条历史记录？'
+}

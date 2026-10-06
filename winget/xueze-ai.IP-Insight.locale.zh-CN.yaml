@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
 PackageIdentifier: xueze-ai.IP-Insight
-PackageVersion: 0.2.0
+PackageVersion: 0.2.1
 PackageLocale: zh-CN
 Publisher: 薛泽（Xue Ze）
 PackageName: 网鉴 · IP Insight
@@ -15,6 +15,6 @@ Tags:
   - vpn
   - proxy
   - speedtest
-ReleaseNotesUrl: https://github.com/xueze-ai/IP-Insight/releases/tag/v0.2.0
+ReleaseNotesUrl: https://github.com/xueze-ai/IP-Insight/releases/tag/v0.2.1
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

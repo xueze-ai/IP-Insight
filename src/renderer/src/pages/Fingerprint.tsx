@@ -4,6 +4,7 @@ import type { JSX, ReactNode } from 'react'
 import type { Fingerprint, NormalizedIPResult } from '@shared/types'
 import { useDetectionContext } from '../state/DetectionContext'
 import { requestNav } from '../state/navStore'
+import { useLang } from '../i18n'
 
 // =============================================================
 // 浏览器指纹页（文档 §16）
@@ -24,18 +25,16 @@ function Row({ k, v }: { k: string; v: ReactNode }): JSX.Element {
 }
 
 function Group({
-  en,
-  cn,
+  title,
   children
 }: {
-  en: string
-  cn: string
+  title: string
   children: ReactNode
 }): JSX.Element {
   return (
     <div className="card">
       <div className="card-eyebrow" style={{ marginBottom: 10 }}>
-        {en} · {cn}
+        {title}
       </div>
       <div className="kv">{children}</div>
     </div>
@@ -47,7 +46,9 @@ function LeakBadge({
 }: {
   leak?: { status: string; exitIp?: string; country?: string }
 }): JSX.Element {
-  if (!leak || !leak.status) return <span className="badge badge-neutral">未检测</span>
+  const { t } = useLang()
+  if (!leak || !leak.status)
+    return <span className="badge badge-neutral">{t('fingerprint.leakNotChecked')}</span>
   const bad = leak.status.includes('泄露')
   return (
     <span className={'badge ' + (bad ? 'badge-bad' : 'badge-good')} title={leak.exitIp}>
@@ -62,6 +63,7 @@ const D = <span className="muted">—</span>
 export function FingerprintPage(): JSX.Element {
   const { steps, run } = useDetectionContext()
   const [open, setOpen] = useState(false)
+  const { t } = useLang()
 
   const gpt = steps.find((s) => s.key === 'netcoffee_gpt')?.result
   const fp: Fingerprint | undefined = gpt?.fingerprint
@@ -70,10 +72,10 @@ export function FingerprintPage(): JSX.Element {
     const reason = gpt?.error
     return (
       <div className="page" style={{ paddingTop: 120 }}>
-        <h1 className="h1">浏览器指纹</h1>
+        <h1 className="h1">{t('common.nav.fingerprint')}</h1>
         <p className="muted" style={{ marginTop: 10, maxWidth: 560, lineHeight: 1.75 }}>
-          指纹数据由 Net.Coffee GPT 源在隐藏浏览器内计算。
-          {reason ? `本次检测该源失败：${reason}` : '先完成一次综合检测即可查看。'}
+          {t('fingerprint.empty.intro')}
+          {reason ? t('fingerprint.empty.failed', { reason }) : t('fingerprint.empty.hint')}
         </p>
         <div style={{ marginTop: 24, display: 'flex', gap: 12 }}>
           <button
@@ -83,13 +85,13 @@ export function FingerprintPage(): JSX.Element {
               run()
             }}
           >
-            开始综合检测
+            {t('fingerprint.startDetection')}
           </button>
           <button
             className="btn btn-ghost"
             onClick={() => void window.ipInsight.openSource('https://ippure.com/fingerprint')}
           >
-            <ExternalLink size={15} /> 打开 IPPure 指纹页
+            <ExternalLink size={15} /> {t('fingerprint.openIppure')}
           </button>
         </div>
       </div>
@@ -98,74 +100,72 @@ export function FingerprintPage(): JSX.Element {
 
   const tzBadge =
     fp.timezoneConsistent === true ? (
-      <span className="badge badge-good">与 ChatGPT 出口时区一致</span>
+      <span className="badge badge-good">{t('fingerprint.tz.consistent')}</span>
     ) : fp.timezoneConsistent === false ? (
-      <span className="badge badge-warn">与 ChatGPT 出口时区不一致</span>
+      <span className="badge badge-warn">{t('fingerprint.tz.inconsistent')}</span>
     ) : (
-      <span className="badge badge-neutral">无法判断</span>
+      <span className="badge badge-neutral">{t('fingerprint.tz.unknown')}</span>
     )
 
   return (
     <div className="page" style={{ paddingTop: 40 }}>
-      <span className="dash-kicker">Browser Fingerprint · 隐藏浏览器实测</span>
-      <h1 className="h1" style={{ marginTop: 6 }}>浏览器指纹</h1>
+      <span className="dash-kicker">{t('fingerprint.kicker')}</span>
+      <h1 className="h1" style={{ marginTop: 6 }}>{t('common.nav.fingerprint')}</h1>
       <p className="muted small" style={{ marginTop: 8, maxWidth: 640, lineHeight: 1.75 }}>
-        以下为检测所用内置隐藏浏览器（Chromium）的环境指纹，由 Net.Coffee GPT
-        源在页面内固定绘制计算、稳定可复现；用于评估检测出口的指纹暴露面，
-        与你日常使用的浏览器可能不同。未采集项显示「—」。
+        {t('fingerprint.desc')}
       </p>
 
       <div className="ip-cols" style={{ marginTop: 26 }}>
-        <Group en="Browser" cn="浏览器">
+        <Group title={t('fingerprint.group.browser')}>
           <Row
-            k="浏览器"
+            k={t('fingerprint.row.browser')}
             v={fp.browser ? `${fp.browser}${fp.browserVersion ? ' ' + fp.browserVersion : ''}` : D}
           />
-          <Row k="操作系统" v={fp.os || D} />
+          <Row k={t('fingerprint.row.os')} v={fp.os || D} />
           <Row k="Platform" v={fp.platform ? <span className="mono">{fp.platform}</span> : D} />
-          <Row k="语言" v={fp.language ? <span className="mono">{fp.language}</span> : D} />
+          <Row k={t('fingerprint.row.language')} v={fp.language ? <span className="mono">{fp.language}</span> : D} />
           <Row
-            k="Cookie"
+            k={t('fingerprint.row.cookie')}
             v={
               fp.cookiesEnabled == null ? (
                 D
               ) : fp.cookiesEnabled ? (
-                <span className="badge badge-good">已启用</span>
+                <span className="badge badge-good">{t('fingerprint.cookie.enabled')}</span>
               ) : (
-                <span className="badge badge-warn">已禁用</span>
+                <span className="badge badge-warn">{t('fingerprint.cookie.disabled')}</span>
               )
             }
           />
         </Group>
 
-        <Group en="Device" cn="设备">
-          <Row k="屏幕分辨率" v={fp.screen ? <span className="mono">{fp.screen}</span> : D} />
-          <Row k="色彩深度" v={fp.colorDepth != null ? `${fp.colorDepth} bit` : D} />
-          <Row k="CPU 线程数" v={fp.hardwareConcurrency != null ? `${fp.hardwareConcurrency}` : D} />
+        <Group title={t('fingerprint.group.device')}>
+          <Row k={t('fingerprint.row.screen')} v={fp.screen ? <span className="mono">{fp.screen}</span> : D} />
+          <Row k={t('fingerprint.row.colorDepth')} v={fp.colorDepth != null ? `${fp.colorDepth} bit` : D} />
+          <Row k={t('fingerprint.row.cpuThreads')} v={fp.hardwareConcurrency != null ? `${fp.hardwareConcurrency}` : D} />
           <Row
-            k="设备内存"
-            v={fp.deviceMemory != null ? `${fp.deviceMemory} GB（浏览器上报上限值）` : D}
+            k={t('fingerprint.row.deviceMemory')}
+            v={fp.deviceMemory != null ? t('fingerprint.row.deviceMemoryVal', { gb: fp.deviceMemory }) : D}
           />
         </Group>
 
-        <Group en="Graphics" cn="图形与音频">
-          <Row k="GPU 渲染器" v={fp.webglRenderer || D} />
-          <Row k="WebGL 指纹" v={fp.webgl ? <span className="mono">{fp.webgl}</span> : D} />
-          <Row k="Canvas 指纹" v={fp.canvas ? <span className="mono">{fp.canvas}</span> : D} />
-          <Row k="音频指纹" v={fp.audio ? <span className="mono">{fp.audio}</span> : D} />
+        <Group title={t('fingerprint.group.graphics')}>
+          <Row k={t('fingerprint.row.gpuRenderer')} v={fp.webglRenderer || D} />
+          <Row k={t('fingerprint.row.webgl')} v={fp.webgl ? <span className="mono">{fp.webgl}</span> : D} />
+          <Row k={t('fingerprint.row.canvas')} v={fp.canvas ? <span className="mono">{fp.canvas}</span> : D} />
+          <Row k={t('fingerprint.row.audio')} v={fp.audio ? <span className="mono">{fp.audio}</span> : D} />
         </Group>
 
-        <Group en="Privacy" cn="隐私一致性">
-          <Row k="时区" v={fp.timezone ? <span className="mono">{fp.timezone}</span> : D} />
-          <Row k="时区一致性" v={tzBadge} />
-          <Row k="DNS 泄露" v={<LeakBadge leak={gpt.dnsLeak} />} />
-          <Row k="WebRTC 泄露" v={<LeakBadge leak={gpt.webRTCLeak} />} />
+        <Group title={t('fingerprint.group.privacy')}>
+          <Row k={t('fingerprint.row.timezone')} v={fp.timezone ? <span className="mono">{fp.timezone}</span> : D} />
+          <Row k={t('fingerprint.row.tzConsistency')} v={tzBadge} />
+          <Row k={t('fingerprint.row.dnsLeak')} v={<LeakBadge leak={gpt.dnsLeak} />} />
+          <Row k={t('fingerprint.row.webrtcLeak')} v={<LeakBadge leak={gpt.webRTCLeak} />} />
         </Group>
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
         <div className="card-eyebrow" style={{ marginBottom: 10 }}>
-          Fingerprint · 综合指纹
+          {t('fingerprint.full.title')}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span className="fp-id">
@@ -173,11 +173,11 @@ export function FingerprintPage(): JSX.Element {
             {fp.visitorId ?? '—'}
           </span>
           {fp.fonts?.length != null && (
-            <span className="badge badge-neutral">检出 {fp.fonts.length} 个字体</span>
+            <span className="badge badge-neutral">{t('fingerprint.full.fontCount', { n: fp.fonts.length })}</span>
           )}
         </div>
         <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span className="caption" style={{ flex: '0 0 auto' }}>偏好语言</span>
+          <span className="caption" style={{ flex: '0 0 auto' }}>{t('fingerprint.full.prefLanguage')}</span>
           {fp.languages?.length ? (
             fp.languages.map((l) => (
               <span className="chip mono" key={l} style={{ fontSize: 12 }}>
@@ -191,15 +191,13 @@ export function FingerprintPage(): JSX.Element {
         {fp.visitorId == null && (
           <div style={{ marginTop: 12 }}>
             <button className="btn btn-ghost btn-sm" onClick={run}>
-              <RefreshCw size={14} /> 重新综合检测以获取新版指纹字段
+              <RefreshCw size={14} /> {t('fingerprint.full.rerun')}
             </button>
           </div>
         )}
         <p className="caption" style={{ marginTop: 10, lineHeight: 1.7 }}>
-          综合指纹 ID 由本机对 Canvas / WebGL / 音频 / 屏幕 / 时区 / 语言 /
-          线程数哈希计算，仅用于自我前后对比（例如更换代理或浏览器内核后是否变化）；
-          非跨站跟踪 ID，不上传任何服务器。
-          {fp.visitorId == null && '（本次检测为旧版 Adapter 结果，无该项）'}
+          {t('fingerprint.full.desc')}
+          {fp.visitorId == null && t('fingerprint.full.legacyNote')}
         </p>
       </div>
 
@@ -212,13 +210,13 @@ export function FingerprintPage(): JSX.Element {
               transition: 'transform var(--dur-fast) var(--ease)'
             }}
           />
-          {open ? '收起详细指纹' : '查看详细指纹'}
+          {open ? t('fingerprint.detail.collapse') : t('fingerprint.detail.expand')}
         </button>
         <button
           className="btn btn-ghost"
           onClick={() => void window.ipInsight.openSource('https://ip.net.coffee/gpt/')}
         >
-          <ExternalLink size={15} /> 查看 GPT 源原网站
+          <ExternalLink size={15} /> {t('fingerprint.viewGptSource')}
         </button>
       </div>
 
@@ -228,7 +226,7 @@ export function FingerprintPage(): JSX.Element {
           <pre className="mono fp-pre">{fp.userAgent ?? '—'}</pre>
 
           <div className="caption strong" style={{ margin: '12px 0 6px' }}>
-            偏好语言列表
+            {t('fingerprint.detail.prefLanguageList')}
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {fp.languages?.length ? (
@@ -243,7 +241,7 @@ export function FingerprintPage(): JSX.Element {
           </div>
 
           <div className="caption strong" style={{ margin: '12px 0 6px' }}>
-            检出字体（宽度差异法，浏览器端计算）
+            {t('fingerprint.detail.fontListTitle')}
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {fp.fonts?.length ? (
@@ -253,14 +251,14 @@ export function FingerprintPage(): JSX.Element {
                 </span>
               ))
             ) : fp.fonts ? (
-              <span className="caption">未检出候选字体</span>
+              <span className="caption">{t('fingerprint.detail.noFonts')}</span>
             ) : (
-              <span className="caption">本次检测未采集字体项</span>
+              <span className="caption">{t('fingerprint.detail.fontsNotCollected')}</span>
             )}
           </div>
 
           <div className="caption strong" style={{ margin: '12px 0 6px' }}>
-            原始指纹 JSON
+            {t('fingerprint.detail.rawJson')}
           </div>
           <pre className="mono fp-pre">{JSON.stringify(fp, null, 2)}</pre>
         </div>

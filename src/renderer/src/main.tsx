@@ -5,6 +5,7 @@ import '@fontsource/inter/500.css'
 import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 import App from './App'
+import { LangProvider } from './i18n'
 import './styles.css'
 
 // 浏览器预览（Demo 模式）：无 Electron preload 注入时安装样例 API，
@@ -16,7 +17,9 @@ async function bootstrap(): Promise<void> {
   }
   createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      <App />
+      <LangProvider>
+        <App />
+      </LangProvider>
     </React.StrictMode>
   )
 }

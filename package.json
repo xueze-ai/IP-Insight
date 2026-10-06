@@ -1,6 +1,6 @@
 {
   "name": "ip-insight",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "IP Insight - IP 综合检测助手（多网站检测聚合 + 数据提取 + AI 综合分析）",
   "main": "./out/main/index.js",
   "author": "Xue Ze (薛泽)",

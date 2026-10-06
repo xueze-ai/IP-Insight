@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AiAnalyzeRequest,
   AiAnalyzeResponse,
+  AiAskRequest,
   AiProviderId,
   AiTestResponse,
   AppSettings,
@@ -78,6 +79,17 @@ const api = {
     const listener = (_event: unknown, stage: string): void => cb(stage)
     ipcRenderer.on('ai:stage', listener)
     return () => ipcRenderer.removeListener('ai:stage', listener)
+  },
+
+  // AI 场景询问：问「这个 IP 适不适合某用途」，流式返回结论 + 依据 + 换节点建议
+  askAi: (payload: AiAskRequest): Promise<AiAnalyzeResponse> =>
+    ipcRenderer.invoke('ai:ask', payload),
+
+  // 订阅场景询问的流式输出片段；返回取消订阅函数
+  onAskChunk: (cb: (delta: string) => void): (() => void) => {
+    const listener = (_event: unknown, delta: string): void => cb(delta)
+    ipcRenderer.on('ai:askChunk', listener)
+    return () => ipcRenderer.removeListener('ai:askChunk', listener)
   },
 
   // 历史记录

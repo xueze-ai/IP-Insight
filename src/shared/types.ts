@@ -251,6 +251,7 @@ export interface AppSettings {
     theme: ThemeMode
     sidebarCollapsedByDefault: boolean
     fontSize: 'standard' | 'large'
+    language: 'zh' | 'en'
   }
   ai: {
     current: string
@@ -318,6 +319,13 @@ export interface AiAnalyzeResponse {
   provider?: string
   model?: string
   ms?: number
+}
+
+// ------------ AI 场景询问 ------------
+export interface AiAskRequest {
+  results: NormalizedIPResult[]
+  question: string
+  consistency?: string
 }
 
 // ------------ 历史记录（userData/history.json） ------------

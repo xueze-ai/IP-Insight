@@ -13,6 +13,7 @@ import { ExportDialog } from '../components/ExportDialog'
 import { useDetectionContext } from '../state/DetectionContext'
 import { requestNav } from '../state/navStore'
 import { buildReportModel, recordToInput } from '../utils/report'
+import { tt, useLang } from '../i18n'
 
 // =============================================================
 // 历史记录页（文档 §16 / §17-UI）
@@ -24,10 +25,16 @@ import { buildReportModel, recordToInput } from '../utils/report'
 // =============================================================
 
 const RISK_CLS: Record<string, string> = {
+  /* 中文模式存储值 */
   低风险: 'badge-good',
   中风险: 'badge-warn',
   高风险: 'badge-bad',
-  严重: 'badge-bad'
+  严重: 'badge-bad',
+  /* 英文模式存储值（历史记录按检测时语言存储） */
+  'Low Risk': 'badge-good',
+  'Medium Risk': 'badge-warn',
+  'High Risk': 'badge-bad',
+  Critical: 'badge-bad'
 }
 
 function dayKey(iso: string): string {
@@ -39,8 +46,8 @@ function dayKey(iso: string): string {
 function dayLabel(key: string): string {
   const today = dayKey(new Date().toISOString())
   const yest = dayKey(new Date(Date.now() - 86400000).toISOString())
-  if (key === today) return '今天'
-  if (key === yest) return '昨天'
+  if (key === today) return tt('history.today')
+  if (key === yest) return tt('history.yesterday')
   return key
 }
 
@@ -52,6 +59,7 @@ function hm(iso: string): string {
 
 export function History(): JSX.Element {
   const { loadRecord } = useDetectionContext()
+  const { t } = useLang()
   const [data, setData] = useState<{
     enabled: boolean
     records: HistoryRecord[]
@@ -83,7 +91,7 @@ export function History(): JSX.Element {
 
   return (
     <div className="page" style={{ paddingTop: 40 }}>
-      <span className="dash-kicker">History · 本地保存</span>
+      <span className="dash-kicker">{t('history.kicker')}</span>
       <div
         style={{
           display: 'flex',
@@ -93,24 +101,23 @@ export function History(): JSX.Element {
           flexWrap: 'wrap'
         }}
       >
-        <h1 className="h1" style={{ marginTop: 6 }}>历史记录</h1>
+        <h1 className="h1" style={{ marginTop: 6 }}>{t('common.nav.history')}</h1>
         {data && data.records.length > 0 && (
           <button
             className="btn btn-ghost btn-sm"
             style={{ color: 'var(--bad)' }}
             onClick={() => {
-              if (window.confirm('确定清空全部历史记录？该操作不可撤销。')) {
+              if (window.confirm(t('history.confirmClear'))) {
                 void window.ipInsight.clearHistory().then(() => load())
               }
             }}
           >
-            <Trash2 size={14} /> 清空全部
+            <Trash2 size={14} /> {t('history.clearAll')}
           </button>
         )}
       </div>
       <p className="muted small" style={{ marginTop: 8, maxWidth: 620, lineHeight: 1.75 }}>
-        每次综合检测完成后自动保存在本机（时间 / IP / 数据源 / 完整结果），
-        保留天数与开关在「设置 → 数据与隐私」中配置。
+        {t('history.desc')}
       </p>
 
       {data && !data.enabled && (
@@ -118,14 +125,14 @@ export function History(): JSX.Element {
           className="card card-subtle"
           style={{ marginTop: 18, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}
         >
-          <span className="badge badge-warn">历史记录已关闭</span>
-          <span className="caption">新的检测将不再写入历史；以下为关闭前保存的记录。</span>
+          <span className="badge badge-warn">{t('history.disabled')}</span>
+          <span className="caption">{t('history.disabledDesc')}</span>
           <button
             className="btn btn-text"
             style={{ marginLeft: 'auto' }}
             onClick={() => requestNav('settings', 'privacy')}
           >
-            <Settings2 size={14} /> 去设置开启
+            <Settings2 size={14} /> {t('history.goEnable')}
           </button>
         </div>
       )}
@@ -138,11 +145,11 @@ export function History(): JSX.Element {
         <div className="page" style={{ paddingTop: 60, textAlign: 'center' }}>
           <HistoryIcon size={30} style={{ color: 'var(--text-disabled)' }} />
           <p className="muted" style={{ marginTop: 12 }}>
-            暂无历史记录。完成一次综合检测后会自动保存在这里。
+            {t('history.empty')}
           </p>
           <div style={{ marginTop: 18 }}>
             <button className="btn btn-primary" onClick={() => requestNav('dashboard')}>
-              去综合检测
+              {t('history.goDetect')}
             </button>
           </div>
         </div>
@@ -166,12 +173,12 @@ export function History(): JSX.Element {
                     <span className="mono hist-time">{hm(r.startedAt)}</span>
                     <span className="mono hist-ip">{r.currentIp ?? '—'}</span>
                     <span className={'badge ' + (RISK_CLS[r.riskLevel ?? ''] ?? 'badge-neutral')}>
-                      {r.riskLevel ?? '无风险数据'}
+                      {r.riskLevel ?? t('history.noRiskData')}
                     </span>
                     {r.netType && <span className="badge badge-neutral">{r.netType}</span>}
                     <span className="caption" style={{ marginLeft: 'auto' }}>
-                      {r.successCount}/{r.totalCount} 源
-                      {r.aiReport ? ' · 含 AI 分析' : ''}
+                      {t('history.sourceCount', { ok: r.successCount, total: r.totalCount })}
+                      {r.aiReport ? t('history.withAi') : ''}
                     </span>
                     <ChevronDown
                       size={15}
@@ -190,7 +197,7 @@ export function History(): JSX.Element {
                           <div className="caption" key={s.key} style={{ display: 'flex', gap: 10 }}>
                             <span style={{ minWidth: 110, color: 'var(--text-2)' }}>{s.name}</span>
                             <span className={'badge ' + (s.ok ? 'badge-good' : 'badge-bad')}>
-                              {s.ok ? '成功' : '失败'}
+                              {s.ok ? t('history.ok') : t('history.fail')}
                             </span>
                             <span className="mono">
                               {s.durationMs != null ? `${(s.durationMs / 1000).toFixed(1)}s` : '—'}
@@ -200,9 +207,9 @@ export function History(): JSX.Element {
                         ))}
                       </div>
                       <div className="caption" style={{ marginTop: 8 }}>
-                        检测时间：{new Date(r.startedAt).toLocaleString()} —{' '}
+                        {t('history.detectTime')}{new Date(r.startedAt).toLocaleString()} —{' '}
                         {new Date(r.finishedAt).toLocaleString()}
-                        {r.riskValue != null ? ` · 归一风险值 ${r.riskValue.toFixed(0)}/100` : ''}
+                        {r.riskValue != null ? t('history.riskValue', { v: r.riskValue.toFixed(0) }) : ''}
                       </div>
                       <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                         <button
@@ -212,16 +219,16 @@ export function History(): JSX.Element {
                             requestNav('dashboard')
                           }}
                         >
-                          <LayoutDashboard size={14} /> 载入分析页
+                          <LayoutDashboard size={14} /> {t('history.loadPage')}
                         </button>
                         <button className="btn btn-ghost btn-sm" onClick={() => setExportRec(r)}>
-                          <Download size={14} /> 导出报告
+                          <Download size={14} /> {t('history.exportReport')}
                         </button>
                         <button
                           className="btn btn-ghost btn-sm"
                           style={{ color: 'var(--bad)' }}
                           onClick={() => {
-                            if (window.confirm('删除这条历史记录？')) {
+                            if (window.confirm(t('history.confirmDelete'))) {
                               void window.ipInsight.deleteHistory(r.id).then(() => {
                                 if (openId === r.id) setOpenId(null)
                                 void load()
@@ -229,7 +236,7 @@ export function History(): JSX.Element {
                             }
                           }}
                         >
-                          <Trash2 size={14} /> 删除
+                          <Trash2 size={14} /> {t('common.action.delete')}
                         </button>
                       </div>
                     </div>

@@ -12,6 +12,8 @@ import {
   startSpeedtest,
   subscribeSpeedtest
 } from '../state/speedtestStore'
+import { tt, useLang } from '../i18n'
+import type { TKey } from '../i18n'
 
 // =============================================================
 // 网络质量页
@@ -35,15 +37,16 @@ interface SpeedRaw {
   finishedAt?: number
 }
 
-const PHASE_LABEL: Record<string, string> = {
-  '': '加载测速页 / 启动引擎',
-  starting: '启动测量引擎',
-  running: '启动测量引擎',
-  latency: '延迟（Ping / Jitter）',
-  download: '下载',
-  upload: '上传',
-  finished: '完成',
-  error: '错误'
+/* 测速阶段 → 字典 key（渲染时经 tt 解析，阶段文案随语言切换） */
+const PHASE_LABEL_KEY: Record<string, TKey> = {
+  '': 'network.phase.preparing',
+  starting: 'network.phase.starting',
+  running: 'network.phase.starting',
+  latency: 'network.phase.latency',
+  download: 'network.phase.download',
+  upload: 'network.phase.upload',
+  finished: 'network.phase.finished',
+  error: 'network.phase.error'
 }
 
 function fmtMbps(n: number | null | undefined): string {
@@ -81,7 +84,8 @@ function KV({ k, v }: { k: string; v: ReactNode }): JSX.Element {
 
 /* Cloudflare AIM 体验评分：保留原始分类名，仅做色调映射 */
 function AimChip({ label, name }: { label: string; name?: string }): JSX.Element {
-  if (!name) return <span className="chip">{label}：—</span>
+  const { t } = useLang()
+  if (!name) return <span className="chip">{t('network.aim.noScore', { label })}</span>
   const tone = /good|great|excellent/i.test(name)
     ? 'badge-good'
     : /bad|poor/i.test(name)
@@ -110,6 +114,7 @@ let reachCacheAt: number | null = null
 let reachStarted = false
 
 export function NetworkQuality(): JSX.Element {
+  const { t } = useLang()
   const speed = useSyncExternalStore(subscribeSpeedtest, getSpeedtest)
   const { steps } = useDetectionContext()
   const [rawOpen, setRawOpen] = useState(false)
@@ -142,7 +147,7 @@ export function NetworkQuality(): JSX.Element {
       feedCache = { at: Date.now(), feed: r.feed }
       setFeed(r.feed)
     } else {
-      setFeedError(r.error ?? '服务状态获取失败')
+      setFeedError(r.error ?? tt('network.svc.feedError'))
     }
   }, [])
 
@@ -157,7 +162,7 @@ export function NetworkQuality(): JSX.Element {
       setReach(r.results)
       setReachAt(reachCacheAt)
     } else {
-      setReachError(r.error ?? '可达性探测失败')
+      setReachError(r.error ?? tt('network.reach.probeError'))
     }
   }, [])
 
@@ -187,7 +192,15 @@ export function NetworkQuality(): JSX.Element {
 
   const nc = steps.find((x) => x.key === 'netcoffee')?.result
   const gp = nc?.globalPing ?? []
+  /* 数据口径的 continent 字段为中文原文，仅用于分组过滤；展示时映射为当前语言 */
   const continents = ['亚洲', '美洲', '欧洲']
+  const continentName = (c: string): string => {
+    if (c === '亚洲') return t('network.ping.asia')
+    if (c === '美洲') return t('network.ping.america')
+    if (c === '欧洲') return t('network.ping.europe')
+    if (c === '其他') return t('network.ping.other')
+    return c
+  }
   const gpGroups = continents
     .map((c) => ({ continent: c, rows: gp.filter((g) => g.continent === c) }))
     .filter((g) => g.rows.length > 0)
@@ -206,15 +219,13 @@ export function NetworkQuality(): JSX.Element {
 
   return (
     <div className="page" style={{ paddingTop: 40 }}>
-      <span className="dash-kicker">Network Quality · 本机实测 + 全球节点</span>
-      <h1 className="h1" style={{ marginTop: 6 }}>网络质量</h1>
+      <span className="dash-kicker">{t('network.kicker')}</span>
+      <h1 className="h1" style={{ marginTop: 6 }}>{t('common.nav.network')}</h1>
       <p
         className="muted small"
         style={{ marginTop: 8, maxWidth: 620, lineHeight: 1.75 }}
       >
-        Download / Upload / Ping / Jitter
-        由内置 Cloudflare 官方测速引擎在隐藏窗口测量；全球节点延迟由
-        Net.Coffee 提供；服务可用性聚合各服务官方状态页。
+        {t('network.intro')}
       </p>
 
       {speed.status === 'idle' && (
@@ -229,12 +240,10 @@ export function NetworkQuality(): JSX.Element {
           }}
         >
           <div className="small two" style={{ lineHeight: 1.75, maxWidth: 560 }}>
-            测速将在后台隐藏窗口运行 Cloudflare
-            官方测量引擎，全程约 1–2 分钟（带宽越好耗时越长）。 测速期间可继续使用其他页面，结果会保留在本页。
-            丢包率依赖 WebRTC TURN 中继，若当前网络环境不可达将显示「未测得」。
+            {t('network.idleDesc')}
           </div>
           <button className="btn btn-primary" onClick={startSpeedtest}>
-            <Gauge size={16} /> 开始测速
+            <Gauge size={16} /> {t('network.startSpeedtest')}
           </button>
         </div>
       )}
@@ -249,29 +258,28 @@ export function NetworkQuality(): JSX.Element {
               />
             </span>
             <span className="step-name">
-              {PHASE_LABEL[speed.phase] ?? PHASE_LABEL['']}
+              {tt(PHASE_LABEL_KEY[speed.phase] ?? PHASE_LABEL_KEY[''])}
             </span>
-            <span className="step-state">已用时 {elapsed}s</span>
+            <span className="step-state">{t('network.running.elapsed', { s: elapsed })}</span>
           </div>
           <p className="caption" style={{ marginTop: 10, lineHeight: 1.7 }}>
-            测量引擎按阶段自动加压以逼近真实带宽，延迟在各轮负载间穿插采样。
-            后台隐藏窗口运行，不弹窗、不阻塞当前页面。
+            {t('network.running.desc')}
           </p>
         </div>
       )}
 
       {speed.status === 'error' && (
         <div className="card" style={{ marginTop: 26 }}>
-          <span className="badge badge-bad">测速失败</span>
+          <span className="badge badge-bad">{t('network.error.badge')}</span>
           <p className="small two" style={{ marginTop: 10, lineHeight: 1.7 }}>
             {speed.error}
           </p>
           <p className="caption" style={{ marginTop: 6 }}>
-            可在网络恢复后重试。
+            {t('network.error.hint')}
           </p>
           <div style={{ marginTop: 14 }}>
             <button className="btn btn-ghost btn-sm" onClick={startSpeedtest}>
-              <RotateCcw size={15} /> 重试
+              <RotateCcw size={15} /> {t('common.action.retry')}
             </button>
           </div>
         </div>
@@ -283,7 +291,7 @@ export function NetworkQuality(): JSX.Element {
             <div className="speed-cell">
               <div className="speed-label">
                 <ArrowDown size={15} style={{ color: 'var(--primary)' }} />
-                Download 下载
+                {t('network.downloadLabel')}
               </div>
               <div className="speed-value">
                 {fmtMbps(speed.result.downloadMbps)}
@@ -293,7 +301,7 @@ export function NetworkQuality(): JSX.Element {
             <div className="speed-cell">
               <div className="speed-label">
                 <ArrowUp size={15} style={{ color: 'var(--primary)' }} />
-                Upload 上传
+                {t('network.uploadLabel')}
               </div>
               <div className="speed-value">
                 {fmtMbps(speed.result.uploadMbps)}
@@ -304,35 +312,40 @@ export function NetworkQuality(): JSX.Element {
 
           <div className="card" style={{ marginTop: 16 }}>
             <div className="kv">
-              <KV k="Ping 空载延迟" v={fmtMs(s?.latency)} />
-              <KV k="Jitter 空载抖动" v={fmtMs(s?.jitter)} />
+              <KV k={t('network.kv.ping')} v={fmtMs(s?.latency)} />
+              <KV k={t('network.kv.jitter')} v={fmtMs(s?.jitter)} />
               <KV
-                k="下载负载下 Ping / Jitter"
+                k={t('network.kv.loadedPingDown')}
                 v={`${fmtMs(s?.downLoadedLatency)} / ${fmtMs(s?.downLoadedJitter)}`}
               />
               <KV
-                k="上传负载下 Ping / Jitter"
+                k={t('network.kv.loadedPingUp')}
                 v={`${fmtMs(s?.upLoadedLatency)} / ${fmtMs(s?.upLoadedJitter)}`}
               />
               <KV
-                k="丢包率"
+                k={t('network.kv.loss')}
                 v={
                   <span
                     className="badge badge-neutral"
-                    title="依赖 WebRTC TURN 中继；当前网络环境不可达时不提供该项"
+                    title={t('network.kv.lossTitle')}
                   >
-                    未测得
+                    {t('network.notMeasured')}
                   </span>
                 }
               />
               <KV
-                k="测速出口 IP"
+                k={t('network.kv.exitIp')}
                 v={
                   trace?.ip ? (
                     <span className="mono">
                       {trace.ip}
                       {trace.colo
-                        ? `（${trace.colo}${trace.loc ? ' · ' + trace.loc : ''}）`
+                        ? t('network.kv.exitIpDetail', {
+                            colo: trace.colo,
+                            suffix: trace.loc
+                              ? t('network.kv.exitIpSep', { loc: trace.loc })
+                              : ''
+                          })
                         : ''}
                     </span>
                   ) : (
@@ -341,53 +354,53 @@ export function NetworkQuality(): JSX.Element {
                 }
               />
               <KV
-                k="总耗时"
+                k={t('network.kv.duration')}
                 v={
                   s?.totalDurationMs != null
-                    ? `${(s.totalDurationMs / 1000).toFixed(1)} s`
+                    ? t('network.kv.durationSec', { n: (s.totalDurationMs / 1000).toFixed(1) })
                     : elapsed
-                      ? `${elapsed} s`
+                      ? t('network.kv.durationSec', { n: elapsed })
                       : '—'
                 }
               />
               <KV
-                k="测量时间"
+                k={t('network.kv.time')}
                 v={new Date(speed.result.fetchedAt).toLocaleString()}
               />
             </div>
           </div>
           <p className="caption" style={{ marginTop: 8, lineHeight: 1.7 }}>
-            丢包率依赖 WebRTC TURN 中继；当前网络环境不可达，暂不提供该项。
+            {t('network.lossNote')}
           </p>
 
           {scores && Object.keys(scores).length > 0 && (
             <div className="card" style={{ marginTop: 16 }}>
               <div className="card-eyebrow" style={{ marginBottom: 12 }}>
-                体验评分 · Cloudflare AIM
+                {t('network.aim.title')}
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <AimChip label="流媒体" name={scores.streaming?.classificationName} />
-                <AimChip label="游戏" name={scores.gaming?.classificationName} />
-                <AimChip label="实时通话" name={scores.rtc?.classificationName} />
+                <AimChip label={t('network.aim.streaming')} name={scores.streaming?.classificationName} />
+                <AimChip label={t('network.aim.gaming')} name={scores.gaming?.classificationName} />
+                <AimChip label={t('network.aim.rtc')} name={scores.rtc?.classificationName} />
               </div>
               <p className="caption" style={{ marginTop: 10, lineHeight: 1.7 }}>
-                分类由 Cloudflare 官方引擎按本次实测的延迟 / 抖动 / 带宽实时计算，非固定值。
+                {t('network.aim.note')}
               </p>
             </div>
           )}
 
           <div style={{ marginTop: 18, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button className="btn btn-ghost" onClick={startSpeedtest}>
-              <RotateCcw size={16} /> 重新测速
+              <RotateCcw size={16} /> {t('network.retest')}
             </button>
             <button
               className="btn btn-ghost"
               onClick={() => void window.ipInsight.openSource('https://speed.cloudflare.com/')}
             >
-              <ExternalLink size={15} /> 查看原网站
+              <ExternalLink size={15} /> {t('network.viewSource')}
             </button>
             <button className="btn btn-text" onClick={() => setRawOpen((v) => !v)}>
-              {rawOpen ? '收起原始测量数据' : '查看原始测量数据'}
+              {rawOpen ? t('network.rawHide') : t('network.rawShow')}
             </button>
           </div>
 
@@ -420,28 +433,28 @@ export function NetworkQuality(): JSX.Element {
       {/* ---------- 全球节点延迟 ---------- */}
       <div className="card" style={{ marginTop: 28 }}>
         <div className="card-head" style={{ marginBottom: 6 }}>
-          <div className="card-eyebrow">全球节点延迟 · Net.Coffee</div>
+          <div className="card-eyebrow">{t('network.ping.title')}</div>
           {gp.length > 0 && (
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => void window.ipInsight.openSource('https://ip.net.coffee/ping/')}
             >
-              <ExternalLink size={14} /> 查看原网站
+              <ExternalLink size={14} /> {t('network.viewSource')}
             </button>
           )}
         </div>
         {gp.length > 0 ? (
           <>
             <div className="gping-head">
-              <span>节点</span>
-              <span className="gping-val">最小</span>
-              <span className="gping-val">平均</span>
-              <span className="gping-val">最大</span>
+              <span>{t('network.ping.node')}</span>
+              <span className="gping-val">{t('network.ping.min')}</span>
+              <span className="gping-val">{t('network.ping.avg')}</span>
+              <span className="gping-val">{t('network.ping.max')}</span>
             </div>
             {[...gpGroups, ...(gpOrphans.length ? [{ continent: '其他', rows: gpOrphans }] : [])].map(
               (g) => (
                 <div key={g.continent}>
-                  <div className="gping-cont">{g.continent}</div>
+                  <div className="gping-cont">{continentName(g.continent)}</div>
                   {g.rows.map((r) => {
                     const avg = r.avgMs ?? r.latencyMs
                     const tone = pingTone(avg)
@@ -456,13 +469,13 @@ export function NetworkQuality(): JSX.Element {
                           )}
                         </span>
                         <span className="gping-val" style={{ color: r.minMs != null ? tone : 'var(--text-muted)' }}>
-                          {r.minMs != null ? `${r.minMs} ms` : r.reachable === false ? '不可达' : '—'}
+                          {r.minMs != null ? `${r.minMs} ms` : r.reachable === false ? t('network.ping.unreachable') : '—'}
                         </span>
                         <span className="gping-val strong" style={{ color: avg != null ? tone : 'var(--text-muted)' }}>
-                          {avg != null ? `${avg} ms` : r.reachable === false ? '不可达' : '—'}
+                          {avg != null ? `${avg} ms` : r.reachable === false ? t('network.ping.unreachable') : '—'}
                         </span>
                         <span className="gping-val" style={{ color: r.maxMs != null ? tone : 'var(--text-muted)' }}>
-                          {r.maxMs != null ? `${r.maxMs} ms` : r.reachable === false ? '不可达' : '—'}
+                          {r.maxMs != null ? `${r.maxMs} ms` : r.reachable === false ? t('network.ping.unreachable') : '—'}
                         </span>
                       </div>
                     )
@@ -471,14 +484,12 @@ export function NetworkQuality(): JSX.Element {
               )
             )}
             <p className="caption" style={{ marginTop: 10, lineHeight: 1.7 }}>
-              来源：本次综合检测中 Net.Coffee 全球测速节点的结果（服务端缓存或实时测量，min/avg/max
-              与站点同口径）；「不可达」为该节点本次测量无响应。
+              {t('network.ping.note')}
             </p>
           </>
         ) : (
           <p className="muted small" style={{ marginTop: 10, lineHeight: 1.75 }}>
-            全球节点延迟由 Net.Coffee 提供。请先在「综合检测」页完成一次检测，
-            本页将按 亚洲 / 美洲 / 欧洲 分组显示 20 个节点的最小 / 平均 / 最大延迟。
+            {t('network.ping.empty')}
           </p>
         )}
       </div>
@@ -486,38 +497,41 @@ export function NetworkQuality(): JSX.Element {
       {/* ---------- 服务可用性 ---------- */}
       <div className="card" style={{ marginTop: 28 }}>
         <div className="card-head" style={{ marginBottom: 12 }}>
-          <div className="card-eyebrow">服务可用性 · Net.Coffee 聚合</div>
+          <div className="card-eyebrow">{t('network.svc.title')}</div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => void loadFeed(true)}
               disabled={feedLoading}
             >
-              <RefreshCw size={14} className={feedLoading ? 'spin' : undefined} /> 刷新
+              <RefreshCw size={14} className={feedLoading ? 'spin' : undefined} /> {t('common.action.refresh')}
             </button>
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => void window.ipInsight.openSource(SERVICE_STATUS_PAGE_URL)}
             >
-              <ExternalLink size={14} /> 原网站
+              <ExternalLink size={14} /> {t('network.svc.sourceSite')}
             </button>
           </div>
         </div>
         {feedLoading && !feed && <div className="skeleton" style={{ height: 120 }} />}
         {feedError && !feed && (
           <p className="small" style={{ color: 'var(--bad)' }}>
-            {feedError}（该数据源暂时不可用）
+            {feedError}{t('network.svc.sourceDown')}
           </p>
         )}
         {feed && (
           <>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <span className={'badge ' + (feed.failing > 0 ? 'badge-warn' : 'badge-good')}>
-                {feed.failing > 0 ? `${feed.failing} 个服务异常` : '全部正常'}
+                {feed.failing > 0 ? t('network.svc.failing', { n: feed.failing }) : t('network.svc.allOk')}
               </span>
               <span className="caption">
-                共 {feed.count} 个服务 · 站点聚合时间 {fmtTime(feed.fetchedAt)} · 本地获取{' '}
-                {fmtTime(feed.fetchedLocalAt)}
+                {t('network.svc.meta', {
+                  count: feed.count,
+                  fetchedAt: fmtTime(feed.fetchedAt),
+                  fetchedLocalAt: fmtTime(feed.fetchedLocalAt)
+                })}
               </span>
             </div>
             <div className="svc-grid">
@@ -527,18 +541,21 @@ export function NetworkQuality(): JSX.Element {
                   <span className="svc-name" title={sv.name}>{sv.name}</span>
                   <span className="svc-tag">{sv.group}</span>
                   <span className="svc-status">
-                    {sv.indicator_cn || sv.description || (sv.indicator === 'unknown' ? '状态未知' : '—')}
+                    {sv.indicator_cn || sv.description || (sv.indicator === 'unknown' ? t('network.svc.unknown') : '—')}
                   </span>
                 </div>
               ))}
             </div>
             {failingServices.length > 0 && (
               <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div className="caption strong">异常服务当前事件</div>
+                <div className="caption strong">{t('network.svc.incidentsTitle')}</div>
                 {failingServices.map((sv) => (
                   <p key={sv.key} className="caption" style={{ lineHeight: 1.6 }}>
-                    · {sv.name}：{sv.incidents[0]?.name || sv.description || '—'}
-                    {sv.incidents[0]?.status ? `（${sv.incidents[0].status}）` : ''}
+                    {t('network.svc.incidentLine', {
+                      name: sv.name,
+                      incident: sv.incidents[0]?.name || sv.description || '—'
+                    })}
+                    {sv.incidents[0]?.status ? t('network.svc.incidentStatus', { status: sv.incidents[0].status }) : ''}
                   </p>
                 ))}
               </div>
@@ -550,14 +567,14 @@ export function NetworkQuality(): JSX.Element {
       {/* ---------- 本机可达性 ---------- */}
       <div className="card" style={{ marginTop: 28 }}>
         <div className="card-head" style={{ marginBottom: 12 }}>
-          <div className="card-eyebrow">本机可达性 · 真实 HTTP 探测</div>
+          <div className="card-eyebrow">{t('network.reach.title')}</div>
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => void loadReach()}
             disabled={reachLoading}
           >
             <RefreshCw size={14} className={reachLoading ? 'spin' : undefined} />
-            {reach ? '重新探测' : '开始探测'}
+            {reach ? t('network.reach.redetect') : t('network.reach.start')}
           </button>
         </div>
         {reachLoading && !reach && <div className="skeleton" style={{ height: 100 }} />}
@@ -574,11 +591,11 @@ export function NetworkQuality(): JSX.Element {
                 </div>
                 <div className="kv-val" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   {r.ok ? (
-                    <span className="badge badge-good">可达 · {r.ms} ms</span>
+                    <span className="badge badge-good">{t('network.reach.ok', { ms: r.ms ?? '—' })}</span>
                   ) : (
                     <>
                       <span className="badge badge-bad">
-                        不可达{r.ms != null ? ` · ${r.ms} ms` : ''}
+                        {r.ms != null ? t('network.reach.failMs', { ms: r.ms }) : t('network.reach.fail')}
                       </span>
                       {r.error && (
                         <span className="caption mono">{r.error}</span>
@@ -592,13 +609,11 @@ export function NetworkQuality(): JSX.Element {
         )}
         {reachAt && (
           <p className="caption" style={{ marginTop: 8 }}>
-            探测时间：{new Date(reachAt).toLocaleString()}
+            {t('network.reach.probedAt', { time: new Date(reachAt).toLocaleString() })}
           </p>
         )}
         <p className="caption" style={{ marginTop: 6, lineHeight: 1.7 }}>
-          探测在隐藏浏览器页内发起（与真实浏览器相同的网络栈与请求头，遵循系统代理）；
-          收到任何响应记为可达，网络层失败（含重试 1 次后仍失败）或 8s 超时记为不可达并显示真实错误。
-          若你的代理仅配置在浏览器插件内而非系统代理，本探测不经过该插件。结果只反映本次探测时刻。
+          {t('network.reach.note')}
         </p>
       </div>
     </div>

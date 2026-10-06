@@ -1,5 +1,6 @@
 import type {
   AiAnalyzeRequest,
+  AiAskRequest,
   AppSettings,
   HistoryRecord,
   NormalizedIPResult,
@@ -291,7 +292,7 @@ function demoHistory(): HistoryRecord[] {
 }
 
 let settings: AppSettings = {
-  appearance: { theme: 'light', sidebarCollapsedByDefault: false, fontSize: 'standard' },
+  appearance: { theme: 'light', sidebarCollapsedByDefault: false, fontSize: 'standard', language: 'zh' },
   ai: {
     current: 'qwen',
     providers: {
@@ -321,6 +322,7 @@ const logListeners = new Set<(m: string) => void>()
 const updateListeners = new Set<(s: UpdateStatus) => void>()
 const chunkListeners = new Set<(d: string) => void>()
 const stageListeners = new Set<(s: string) => void>()
+const askListeners = new Set<(d: string) => void>()
 
 function deepMerge(base: AppSettings, patch: Record<string, unknown>): AppSettings {
   const out: Record<string, unknown> = { ...base }
@@ -392,6 +394,19 @@ export function install(): void {
     onAiStage: (cb: (s: string) => void) => {
       stageListeners.add(cb)
       return () => stageListeners.delete(cb)
+    },
+    askAi: async (_p: AiAskRequest) => {
+      const sample =
+        '## 结论：有条件可行\n\n- 该 IP 为数据中心广播段，原生性较低，流媒体解锁可能受限。\n- 建议：更换住宅 ISP 的原生 IP，或选择流媒体解锁率高的地区住宅出口。\n\n（Demo 样例回答）'
+      for (const c of sample.match(/.{1,24}/gs) ?? []) {
+        await sleep(18)
+        askListeners.forEach((l) => l(c))
+      }
+      return { ok: true, text: sample, provider: 'Demo', model: 'demo', ms: 1200 }
+    },
+    onAskChunk: (cb: (d: string) => void) => {
+      askListeners.add(cb)
+      return () => askListeners.delete(cb)
     },
     listHistory: async () => ({ ok: true, enabled: settings.privacy.historyEnabled, records: history }),
     getHistory: async (id: string) => ({ ok: true, record: history.find((h) => h.id === id) }),

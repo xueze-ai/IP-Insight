@@ -1,4 +1,5 @@
 import type { JSX } from 'react'
+import { useLang } from '../i18n'
 
 export function PagePlaceholder({
   title,
@@ -7,6 +8,7 @@ export function PagePlaceholder({
   title: string
   desc?: string
 }): JSX.Element {
+  const { t } = useLang()
   return (
     <div className="page" style={{ paddingTop: 48 }}>
       <h1 className="h1">{title}</h1>
@@ -14,8 +16,7 @@ export function PagePlaceholder({
         className="muted"
         style={{ marginTop: 12, maxWidth: 540, lineHeight: 1.75 }}
       >
-        {desc ??
-          '该模块将在后续阶段完善；底层数据采集与各数据源 Adapter 已就绪并通过实测。'}
+        {desc ?? t('misc.placeholderDesc')}
       </p>
     </div>
   )

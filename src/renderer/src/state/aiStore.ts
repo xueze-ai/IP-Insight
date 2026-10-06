@@ -1,4 +1,5 @@
 import type { AiAnalyzeResponse } from '@shared/types'
+import { tt } from '../i18n'
 
 // =============================================================
 // AI 分析状态（模块级单例）
@@ -51,7 +52,7 @@ export function startAnalysis(
   results: Parameters<typeof window.ipInsight.analyzeAi>[0]['results'],
   consistency: string
 ): Promise<AiAnalyzeResponse> {
-  if (running) return Promise.resolve({ ok: false, error: '已有分析正在进行' })
+  if (running) return Promise.resolve({ ok: false, error: tt('misc.ai.alreadyRunning') })
   running = true
   set({
     phase: 'running',
@@ -91,7 +92,7 @@ export function startAnalysis(
         set({
           phase: 'error',
           text: res.partial ?? state.text,
-          error: res.error ?? 'AI 分析失败',
+          error: res.error ?? tt('misc.ai.failed'),
           meta: res.provider
             ? { provider: res.provider, model: res.model ?? '', ms: res.ms ?? Date.now() - t0 }
             : null

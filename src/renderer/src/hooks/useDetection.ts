@@ -7,6 +7,7 @@ import {
   median,
   sourceRisks
 } from '../utils/aggregate'
+import { tt } from '../i18n'
 
 // 多源编排：顺序运行 4 个数据源，单源失败不影响后续；真实数据，不伪造。
 // 检测完成后按设置（privacy.historyEnabled）自动写入本地历史记录，
@@ -134,9 +135,9 @@ export function useDetection() {
           .filter((n): n is number => n != null)
         const ov = median(risks)
         const netAgg = aggregateField(mrs, (r) => {
-          if (r.flags?.residential) return '住宅'
-          if (r.flags?.datacenter) return '数据中心'
-          if (r.flags?.hosting) return '托管'
+          if (r.flags?.residential) return tt('misc.netType.residential')
+          if (r.flags?.datacenter) return tt('misc.netType.datacenter')
+          if (r.flags?.hosting) return tt('misc.netType.hosting')
           return null
         })
         const record: HistoryRecord = {
