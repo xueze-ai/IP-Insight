@@ -4,6 +4,7 @@ export const zhCommon = {
     dashboard: '综合检测',
     ipInfo: 'IP 信息',
     network: '网络质量',
+    exitDiag: '网络出口诊断',
     risk: '风险分析',
     fingerprint: '浏览器指纹',
     ai: 'AI 分析',

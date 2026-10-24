@@ -40,6 +40,7 @@ export const zhDashboard = {
   diagNone: '本轮未取得公网出口观测结果',
   diagFailed: '{n} 个观测点未成功',
   diagMore: '查看完整出口诊断 →',
+  diagOnlyHint: '这是一次独立的出口诊断快照（未运行多源 IP 检测）；完整结果在「网络出口诊断」页面。',
   explain: {
     show: '这些字段是什么意思？',
     hide: '收起解释',

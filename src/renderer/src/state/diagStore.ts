@@ -1,21 +1,44 @@
 import { useSyncExternalStore } from 'react'
-import type { DiagEvent, DiagModuleId, DiagRun, DiagRunSummary, DiagStatus } from '@shared/diag'
+import type { DiagEvent, DiagModuleId, DiagProbe, DiagRun, DiagRunSummary, DiagStatus } from '@shared/diag'
 
 // =============================================================
-// 出口诊断状态（渲染层）
+// 出口诊断状态（渲染层 v2）
+// · 双模式：live（主进程实时轮次，事件 + 轮询校准）/ history（不可变历史快照，
+//   后台实时结果不得覆盖历史视图）。
 // · runId 隔离：停止/重跑/载入历史后，旧 runId 的迟到事件一律丢弃。
-// · 主进程为唯一数据源（latestDiag 拉取 + diag:event 增量）。
+// · probe 事件携带完整探测项：直接写入对应行（骨架启动即有行）。
+// · 主进程为唯一数据源；页面卸载再进入时恢复最近轮次的订阅与轮询。
 // =============================================================
+
+export type DiagViewMode = 'live' | 'history'
+
+export interface HistoryDiagMeta {
+  recordId: string
+  startedAt: string
+}
 
 interface DiagState {
+  mode: DiagViewMode
+  /** live：主进程最近/当前轮（含逐项结果） */
   run: DiagRun | null
   summary: DiagRunSummary | null
-  /** 本地记录的“最新启动 runId”，早于它的事件全部忽略 */
+  /** history：载入的历史快照（不可变） */
+  historyDiag: DiagRunSummary | null
+  historyMeta: HistoryDiagMeta | null
+  /** 本地记录的「最新启动 runId」；早于它的事件全部忽略 */
   activeRunId: string | null
   starting: boolean
 }
 
-let state: DiagState = { run: null, summary: null, activeRunId: null, starting: false }
+let state: DiagState = {
+  mode: 'live',
+  run: null,
+  summary: null,
+  historyDiag: null,
+  historyMeta: null,
+  activeRunId: null,
+  starting: false
+}
 const subs = new Set<() => void>()
 
 function emitChange(): void {
@@ -23,13 +46,72 @@ function emitChange(): void {
   for (const s of subs) s()
 }
 
-let subscribed = false
-let pollTimer: ReturnType<typeof setInterval> | null = null
+/** 应用 probe 事件：定位行并整体替换（骨架行在启动时即创建） */
+function applyProbe(run: DiagRun, moduleId: DiagModuleId, probe: DiagProbe): boolean {
+  const m = run.modules.find((x) => x.id === moduleId)
+  if (!m) return false
+  const idx = m.probes.findIndex((p) => p.id === probe.id)
+  if (idx >= 0) {
+    const probes = m.probes.slice()
+    probes[idx] = probe
+    m.probes = probes
+    return true
+  }
+  // 骨架未含该行（如 Sukka 页面为完整模式动态追加）：按顺序追加
+  m.probes = [...m.probes, probe]
+  return true
+}
 
-/** 运行期间每 2s 全量校准一次（事件仅提供即时反馈；以主进程快照为准） */
+function recomputeModuleStatus(m: { probes: DiagProbe[] }): DiagStatus {
+  const st = m.probes.map((p) => p.status)
+  if (!st.length || st.every((s) => s === 'queued' || s === 'pending' || s === 'skipped')) return 'pending'
+  if (st.includes('running')) return 'running'
+  const ok = st.filter((s) => s === 'success').length
+  const bad = st.filter((s) => s === 'failed' || s === 'timeout').length
+  const canceled = st.filter((s) => s === 'canceled').length
+  if (ok > 0) return bad + canceled > 0 ? 'partial' : 'success'
+  if (canceled > 0 && bad === 0) return 'canceled'
+  return 'failed'
+}
+
+let subscribed = false
+function ensureSubscribed(): void {
+  if (subscribed) return
+  subscribed = true
+  window.ipInsight.onDiagEvent((e: DiagEvent) => {
+    if (state.mode !== 'live') return // 历史视图：实时事件不覆盖
+    if (!state.activeRunId || e.runId !== state.activeRunId) return
+    const run = state.run
+    if (!run || run.runId !== e.runId) return
+    if (e.kind === 'probe') {
+      if (applyProbe(run, e.moduleId, e.probe)) {
+        const m = run.modules.find((x) => x.id === e.moduleId)
+        if (m) m.status = recomputeModuleStatus(m)
+      }
+    } else if (e.kind === 'module') {
+      const m = run.modules.find((x) => x.id === e.moduleId)
+      if (m) m.status = e.status
+    } else if (e.kind === 'run') {
+      run.status = e.status
+      run.finishedReason = e.finishedReason
+      if (e.status !== 'running' && !run.finishedAt) run.finishedAt = new Date().toISOString()
+    }
+    emitChange()
+  })
+}
+
+/** 运行期间每 2.5s 全量校准（以主进程快照为准；事件只提供即时反馈） */
+let pollTimer: ReturnType<typeof setInterval> | null = null
 function ensurePolling(): void {
   if (pollTimer) return
   pollTimer = setInterval(() => {
+    if (state.mode !== 'live') {
+      if (pollTimer) {
+        clearInterval(pollTimer)
+        pollTimer = null
+      }
+      return
+    }
     const run = state.run
     if (!run || run.status !== 'running') {
       if (pollTimer) {
@@ -39,36 +121,16 @@ function ensurePolling(): void {
       return
     }
     void refreshDiag()
-  }, 2000)
+  }, 2500)
 }
 
-function ensureSubscribed(): void {
-  if (subscribed) return
-  subscribed = true
-  window.ipInsight.onDiagEvent((e: DiagEvent) => {
-    // 迟到轮次隔离：只接受当前活动 runId 的事件
-    if (!state.activeRunId || e.runId !== state.activeRunId) return
-    if (!state.run || state.run.runId !== e.runId) return
-    const run = state.run
-    const mIdx = run.modules.findIndex((m) => m.id === e.moduleId)
-    if (mIdx >= 0) {
-      const m = run.modules[mIdx]
-      if (e.probeId) {
-        const pIdx = m.probes.findIndex((p) => p.id === e.probeId)
-        if (pIdx >= 0 && m.probes[pIdx].status !== e.status) {
-          const probes = m.probes.slice()
-          probes[pIdx] = { ...probes[pIdx], status: e.status }
-          run.modules[mIdx] = { ...m, probes }
-        }
-      } else if (m.status !== e.status) {
-        run.modules[mIdx] = { ...m, status: e.status }
-      }
-    }
-    if (e.status === 'canceled' || ['success', 'partial', 'failed', 'timeout', 'canceled'].includes(e.status)) {
-      // 模块完成事件由 summary 拉取校准；此处只更新运行态 UI
-    }
-    emitChange()
-  })
+function adoptRun(run: DiagRun | null, summary: DiagRunSummary | null): void {
+  if (!run) {
+    state = { ...state, run: null, summary: null }
+    return
+  }
+  // 采纳新快照前保留本视图已知的行内状态，避免轮询回退（主进程快照为准，直接替换）
+  state = { ...state, run, summary }
 }
 
 export function subscribeDiag(cb: () => void): () => void {
@@ -81,12 +143,24 @@ export function getDiag(): DiagState {
   return state
 }
 
-/** 启动后按需刷新一次（初始挂载时拉取主进程已有轮次） */
+/** 恢复最近一轮（页面挂载时；后台轻量诊断也能正确恢复订阅与轮询） */
 export async function refreshDiag(): Promise<void> {
   try {
+    if (state.activeRunId) {
+      const r = await window.ipInsight.getDiag(state.activeRunId)
+      if (r.ok) {
+        adoptRun(r.run, r.summary)
+        if (r.run?.status === 'running') ensurePolling()
+        emitChange()
+        return
+      }
+    }
     const r = await window.ipInsight.latestDiag()
     if (r.ok) {
-      state = { ...state, run: r.run, summary: r.summary }
+      adoptRun(r.run, r.summary)
+      // 无本地活动轮时采纳主进程最近轮（后台启动的轻量诊断）
+      if (r.run && !state.activeRunId) state.activeRunId = r.run.runId
+      if (r.run?.status === 'running') ensurePolling()
       emitChange()
     }
   } catch {
@@ -94,19 +168,33 @@ export async function refreshDiag(): Promise<void> {
   }
 }
 
-export async function startDiag(modules: DiagModuleId[]): Promise<string | null> {
-  state = { ...state, starting: true }
+/** 进入实时视图（新检测 / 重跑 / 从历史切回） */
+export function enterLive(): void {
+  state = { ...state, mode: 'live', historyDiag: null, historyMeta: null }
+  emitChange()
+}
+
+/** 载入历史快照（不可变；实时事件与轮询全部让位） */
+export function loadHistoryDiag(summary: DiagRunSummary, meta: HistoryDiagMeta): void {
+  state = { ...state, mode: 'history', historyDiag: summary, historyMeta: meta }
+  emitChange()
+}
+
+export async function startDiag(
+  modules: DiagModuleId[],
+  origin: 'dashboard' | 'network' = 'network',
+  detectionId?: string
+): Promise<string | null> {
+  ensureSubscribed()
+  state = { ...state, starting: true, mode: 'live', historyDiag: null, historyMeta: null }
   emitChange()
   try {
-    const r = await window.ipInsight.startDiag({ modules, origin: 'network' })
+    const r = await window.ipInsight.startDiag({ modules, origin, detectionId })
     if (r.ok && r.runId) {
       state = { ...state, activeRunId: r.runId, starting: false }
+      if (r.run) adoptRun(r.run, null)
       emitChange()
-      // 启动即拉取一次骨架，并开启轮询校准直至本轮结束
-      setTimeout(() => {
-        void refreshDiag()
-        ensurePolling()
-      }, 60)
+      ensurePolling()
       return r.runId
     }
     state = { ...state, starting: false }
@@ -122,6 +210,19 @@ export async function startDiag(modules: DiagModuleId[]): Promise<string | null>
 export async function stopDiag(): Promise<void> {
   try {
     await window.ipInsight.stopDiag(state.activeRunId ?? undefined)
+    // 停止后立即拉一次最终状态（主进程已终结全部未完成项）
+    setTimeout(() => void refreshDiag(), 120)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 单项 / 多项重试（不清空其他结果） */
+export async function retryDiagProbes(probeIds: string[]): Promise<void> {
+  if (!state.activeRunId || !probeIds.length) return
+  try {
+    await window.ipInsight.retryDiag({ runId: state.activeRunId, probeIds })
+    setTimeout(() => void refreshDiag(), 120)
   } catch {
     /* ignore */
   }
@@ -131,32 +232,17 @@ export function useDiag(): DiagState {
   return useSyncExternalStore(subscribeDiag, getDiag, getDiag)
 }
 
-/** 诊断状态 → 徽章语义类：中性(silver)/正常(绿)/注意(橙)/异常(红)/进行(蓝) */
-export function diagBadgeCls(status: DiagStatus | undefined): string {
-  switch (status) {
-    case 'success':
-      return 'badge-good'
-    case 'partial':
-      return 'badge-warn'
-    case 'failed':
-    case 'timeout':
-      return 'badge-bad'
-    case 'running':
-      return 'badge-info'
-    default:
-      // pending / canceled / skipped / unsupported / undefined → 中性
-      return 'badge-neutral'
-  }
+/** 当前视图快照：history 模式用历史摘要，live 模式用实时摘要 */
+export function activeSummary(st: DiagState): DiagRunSummary | null {
+  return st.mode === 'history' ? st.historyDiag : st.summary
 }
 
-/** 模块完成状态集合（用于判断运行中） */
-export const DIAG_RUNNING: DiagStatus[] = ['running', 'pending']
-
-export function diagRunning(state: DiagState): boolean {
-  if (state.starting) return true
-  if (!state.run) return false
-  if (state.run.status === 'running') return true
-  return state.run.modules.some((m) => m.status === 'running')
+/** 运行中判定 */
+export function diagRunning(st: DiagState): boolean {
+  if (st.starting) return true
+  if (st.mode !== 'live') return false
+  if (!st.run) return false
+  return st.run.status === 'running'
 }
 
 /** 模块探测项计数（成功/总数） */

@@ -117,6 +117,15 @@ export function buildMessages(
         ? `\n<Exit diagnostics fact lines>\n${diagLines.join('\n')}\n</Exit diagnostics fact lines>`
         : `\n<出口诊断事实行>\n${diagLines.join('\n')}\n</出口诊断事实行>`
       : ''
+  // 纯诊断快照（results 为空）：明确告知未运行多源检测，不得编造 IP 画像
+  const onlyDiag = results.length === 0 && !!diagBlock
+  const resultsBlock = onlyDiag
+    ? lang === 'en'
+      ? `<Normalized results JSON>\n[]\n</Normalized results JSON>\n(This snapshot contains exit-diagnostics only; no multi-source IP detection was run. Do not invent IP-profile conclusions.)`
+      : `<标准化结果 JSON>\n[]\n</标准化结果 JSON>\n（本快照仅包含出口诊断数据，未运行多源 IP 检测；不得编造 IP 画像结论。）`
+    : lang === 'en'
+      ? `<Normalized results JSON>\n${JSON.stringify(results)}\n</Normalized results JSON>`
+      : `<标准化结果 JSON>\n${JSON.stringify(results)}\n</标准化结果 JSON>`
   // 紧凑 JSON（无缩进）以减少 prompt token：首字更快、成本更低、注意力更集中
   const user =
     lang === 'en'
@@ -126,9 +135,7 @@ export function buildMessages(
 ${consistency}
 </Cross-source summary>${diagBlock}
 
-<Normalized results JSON>
-${JSON.stringify(results)}
-</Normalized results JSON>
+${resultsBlock}
 
 Please output the analysis report per the system requirements.`
       : `以下是当前网络环境一次多源检测的标准化结果（含各源原始口径）与程序交叉汇总。

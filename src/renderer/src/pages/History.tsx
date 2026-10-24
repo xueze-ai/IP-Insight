@@ -172,9 +172,13 @@ export function History(): JSX.Element {
                   <button className="hist-main" onClick={() => setOpenId(open ? null : r.id)}>
                     <span className="mono hist-time">{hm(r.startedAt)}</span>
                     <span className="mono hist-ip">{r.currentIp ?? '—'}</span>
-                    <span className={'badge ' + (RISK_CLS[r.riskLevel ?? ''] ?? 'badge-neutral')}>
-                      {r.riskLevel ?? t('history.noRiskData')}
-                    </span>
+                    {r.kind === 'exitDiag' ? (
+                      <span className="badge badge-info">{t('diag.save.kindBadge')}</span>
+                    ) : (
+                      <span className={'badge ' + (RISK_CLS[r.riskLevel ?? ''] ?? 'badge-neutral')}>
+                        {r.riskLevel ?? t('history.noRiskData')}
+                      </span>
+                    )}
                     {r.netType && <span className="badge badge-neutral">{r.netType}</span>}
                     {r.diag && (
                       <span className="badge badge-info" title={t('history.diagTitle')}>
@@ -238,7 +242,7 @@ export function History(): JSX.Element {
                           className="btn btn-tonal btn-sm"
                           onClick={() => {
                             loadRecord(r)
-                            requestNav('dashboard')
+                            requestNav(r.kind === 'exitDiag' ? 'exitDiag' : 'dashboard')
                           }}
                         >
                           <LayoutDashboard size={14} /> {t('history.loadPage')}

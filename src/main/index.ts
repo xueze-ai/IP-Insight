@@ -14,7 +14,9 @@ import {
   onDiagEvent,
   startRun as diagStartRun,
   stopRun as diagStopRun,
-  summarizeRun as diagSummarize
+  summarizeRun as diagSummarize,
+  getDiagRun,
+  retryProbes as diagRetry
 } from './diag/orchestrator'
 import type { DiagStartRequest } from '@shared/diag'
 import { getSettings, setSettings, resetSettings } from './settings'
@@ -689,22 +691,20 @@ async function setupExitDiagVerify(): Promise<void> {
   try {
     suppressWindowAllClosedQuit = true
     console.log('[EXIT_VERIFY] start')
-    await navTo('网络质量')
-    await sleep(900)
-    await exec(`document.getElementById('exit-diag')?.scrollIntoView({block:'start'})`)
-    await sleep(400)
+    await navTo('网络出口诊断')
+    await sleep(1000)
     await shot('exit-diag-idle.png')
-    console.log('[EXIT_VERIFY] click runAll=', await click('一键出口诊断'))
-    await exec('window.__evtCount = 0; window.ipInsight.onDiagEvent(function(){ window.__evtCount++ }); undefined')
+    console.log('[EXIT_VERIFY] click runAll=', await click('开始全部检测'))
     await sleep(3000)
-    console.log('[EXIT_VERIFY] events in 3s=', await exec('window.__evtCount'))
     await shot('exit-diag-running.png')
     const t0 = Date.now()
     for (;;) {
-      const txt = (await exec(
-        `document.getElementById('exit-diag')?.innerText.replace(/\\s+/g,' ')`
-      )) as string
-      if ((txt && !txt.includes('进行中') && (txt.includes('项成功') || txt.includes('已取消'))) || Date.now() - t0 > 110000) {
+      const txt = (await exec(`document.body.innerText.replace(/\\s+/g,' ')`)) as string
+      const settled =
+        txt &&
+        !txt.includes('项完成') &&
+        (txt.includes('批次') && (txt.includes('项成功') || txt.includes('已停止') || txt.includes('超时')))
+      if (settled || Date.now() - t0 > 130000) {
         console.log('[EXIT_VERIFY] settled after', Math.round((Date.now() - t0) / 1000), 's')
         const run = latestRun()
         console.log('[EXIT_VERIFY] main-side run status=', run?.status, 'modules=', JSON.stringify(run?.modules.map((m) => `${m.id}:${m.status}:${m.probes.length}`)))
@@ -712,23 +712,22 @@ async function setupExitDiagVerify(): Promise<void> {
       }
       await sleep(2000)
     }
-    await exec(`document.getElementById('exit-diag')?.scrollIntoView({block:'start'})`)
-    await sleep(400)
+    await sleep(800)
     await shot('exit-diag-done.png')
-    // 展开 CDN 模块与一个探测项明细
-    await exec(`(function(){var b=[].slice.call(document.querySelectorAll('.diag-mod-head')).find(function(x){return x.innerText.indexOf('CDN')>=0});if(b){b.click();return true}return false})()`)
-    await sleep(700)
-    await exec(`(function(){var b=[].slice.call(document.querySelectorAll('.diag-probe-main')).find(function(x){return x.innerText.indexOf('Cloudflare')>=0});if(b){b.click();return true}return false})()`)
+    // 切到 CDN 标签并展开一行详情
+    await exec(`(function(){var b=[].slice.call(document.querySelectorAll('.diag-tab')).find(function(x){return x.innerText.indexOf('CDN')>=0});if(b){b.click();return true}return false})()`)
+    await sleep(800)
+    await exec(`(function(){var b=document.querySelector('.diag-tr');if(b){b.click();return true}return false})()`)
     await sleep(700)
     await shot('exit-diag-cdn-open.png')
     const finalText = (await exec(
-      `document.getElementById('exit-diag')?.innerText.replace(/\\s+/g,' ').slice(0,1400)`
+      `document.body.innerText.replace(/\\s+/g,' ').slice(0,1600)`
     )) as string
-    console.log('[EXIT_VERIFY] final:', String(finalText).slice(0, 1200))
+    console.log('[EXIT_VERIFY] final:', String(finalText).slice(0, 1300))
     console.log(
-      '[EXIT_VERIFY] domBadges=',
+      '[EXIT_VERIFY] tabCounts=',
       await exec(
-        'JSON.stringify([].slice.call(document.querySelectorAll(".diag-mod-head .badge")).map(function(b){return b.textContent}))'
+        'JSON.stringify([].slice.call(document.querySelectorAll(".diag-tab-count")).map(function(b){return b.textContent}))'
       )
     )
     console.log('[EXIT_VERIFY] done')
@@ -1036,8 +1035,12 @@ app.whenReady().then(async () => {
         ? req.modules.filter((m) => ['publicIp', 'splitTunnel', 'cdnNode', 'dnsExit'].includes(m))
         : []
       if (!mods.length) return { ok: false, error: 'no modules' }
-      const runId = await diagStartRun(mods as DiagStartRequest['modules'], req.origin === 'dashboard' ? 'dashboard' : 'network')
-      return { ok: true, runId }
+      const { runId, run } = await diagStartRun(
+        mods as DiagStartRequest['modules'],
+        req.origin === 'dashboard' ? 'dashboard' : 'network',
+        typeof req?.detectionId === 'string' ? req.detectionId.slice(0, 64) : undefined
+      )
+      return { ok: true, runId, run }
     } catch (e) {
       return { ok: false, error: (e as Error).message }
     }
@@ -1049,7 +1052,22 @@ app.whenReady().then(async () => {
     const run = latestRun()
     return { ok: true, run, summary: run ? diagSummarize(run) : null }
   })
-  // 进度事件：限制转发内容（runId / 模块 / 探测项 / 状态 / 消息）
+  ipcMain.handle('diag:get', async (_event, runId: string) => {
+    const run = getDiagRun(String(runId ?? '').slice(0, 64))
+    return { ok: true, run, summary: run ? diagSummarize(run) : null }
+  })
+  ipcMain.handle('diag:retry', async (_event, req: { runId?: string; probeIds?: string[] }) => {
+    try {
+      const ids = Array.isArray(req?.probeIds)
+        ? req.probeIds.filter((x) => typeof x === 'string').slice(0, 20)
+        : []
+      if (!req?.runId || !ids.length) return { ok: false, error: 'no probes' }
+      return { ok: await diagRetry(String(req.runId).slice(0, 64), ids) }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  })
+  // 进度事件：runId / 模块 / 完整探测项（结构化数据经 IPC 结构化克隆传输）
   ipcMain.on('diag:subscribe', (event) => {
     const off = onDiagEvent((e) => {
       if (!event.sender.isDestroyed()) event.sender.send('diag:event', e)
@@ -1137,10 +1155,12 @@ app.whenReady().then(async () => {
     const results: NormalizedIPResult[] = Array.isArray(payload?.results)
       ? payload.results
       : []
-    if (!results.length) return { ok: false, error: mt('aiNoData') }
     const diagLines = Array.isArray(payload?.diagLines)
       ? payload.diagLines.map((l) => String(l).slice(0, 300)).slice(0, 60)
       : []
+    // 0.2.3：独立出口诊断快照可单独交给 AI（results 为空但诊断事实行存在）
+    if (!results.length && !diagLines.length) return { ok: false, error: mt('aiNoData') }
+    const reqId = typeof payload?.reqId === 'string' ? payload.reqId.slice(0, 64) : undefined
     console.log('[AI] payload bytes', JSON.stringify(results).length, 'diagLines', diagLines.length)
     const t0 = Date.now()
     let full = ''
@@ -1155,8 +1175,8 @@ app.whenReady().then(async () => {
           temperature: s.ai.temperature,
           maxTokens: s.ai.maxTokens,
           messages,
-          onChunk: (d) => event.sender.send('ai:chunk', d),
-          onStage: (st) => event.sender.send('ai:stage', st)
+          onChunk: (d) => event.sender.send('ai:chunk', { reqId, delta: d }),
+          onStage: (st) => event.sender.send('ai:stage', { reqId, stage: st })
         })
         full += r.text
         if (r.finishReason !== 'length') break
@@ -1169,7 +1189,7 @@ app.whenReady().then(async () => {
               ? 'The previous output was cut off due to the length limit. Please continue from where it was cut off and finish the remaining content: do not repeat finished paragraphs or headings, no preamble, continue writing directly.'
               : '上一次输出因长度限制被截断。请从截断处继续写完剩余内容：不要重复已完成的段落与标题，不要开场白，直接续写。'
         })
-        event.sender.send('ai:chunk', '\n\n')
+        event.sender.send('ai:chunk', { reqId, delta: '\n\n' })
       }
       return {
         ok: true,
@@ -1201,14 +1221,15 @@ app.whenReady().then(async () => {
       ? payload.results
       : []
     const question = String(payload?.question ?? '').trim().slice(0, 500)
-    if (!results.length) return { ok: false, error: mt('aiNoData') }
+    const diagLines = Array.isArray(payload?.diagLines)
+      ? payload.diagLines.map((l) => String(l).slice(0, 300)).slice(0, 60)
+      : []
+    if (!results.length && !diagLines.length) return { ok: false, error: mt('aiNoData') }
     if (!question) return { ok: false, error: mt('askEmpty') }
+    const reqId = typeof payload?.reqId === 'string' ? payload.reqId.slice(0, 64) : undefined
     const lang = s.appearance.language === 'en' ? 'en' : 'zh'
     const t0 = Date.now()
     try {
-      const diagLines = Array.isArray(payload?.diagLines)
-        ? payload.diagLines.map((l) => String(l).slice(0, 300)).slice(0, 60)
-        : []
       const messages = buildAskMessages(results, String(payload?.consistency ?? ''), question, lang, diagLines)
       const r = await chatStream({
         baseUrl: p.cfg.baseUrl,
@@ -1217,7 +1238,7 @@ app.whenReady().then(async () => {
         temperature: s.ai.temperature,
         maxTokens: s.ai.maxTokens,
         messages,
-        onChunk: (d) => event.sender.send('ai:askChunk', d)
+        onChunk: (d) => event.sender.send('ai:askChunk', { reqId, delta: d })
       })
       return {
         ok: true,

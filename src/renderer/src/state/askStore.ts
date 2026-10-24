@@ -3,22 +3,20 @@ import { tt } from '../i18n'
 
 // =============================================================
 // 场景咨询状态（模块级单例）
-// 咨询耗时较长，用户可能中途切页：输入草稿、流式回答、错误都保存在模块层，
-// 切换页面不丢失；流式监听注册在 store 的 ask 流程内，随 promise 生命周期，
-// 组件卸载不会中断流式接收，切回页面可看到完整结果。
+// 请求 ID 绑定同 aiStore：切换检测 / 载入历史后，
+// 旧请求的迟到流式片段不污染新视图。
 // =============================================================
 
 export type AskPhase = 'idle' | 'asking' | 'done' | 'error'
 
 export interface AskState {
   phase: AskPhase
-  /** 输入框草稿：未发送也保留，切页不丢 */
   question: string
-  /** 本次实际发出的问题 */
   askedQuestion: string
   answer: string
   error: string | null
   startedAt: number | null
+  reqId: string | null
 }
 
 let state: AskState = {
@@ -27,10 +25,12 @@ let state: AskState = {
   askedQuestion: '',
   answer: '',
   error: null,
-  startedAt: null
+  startedAt: null,
+  reqId: null
 }
 const listeners = new Set<() => void>()
 let asking = false
+let reqSeq = 0
 
 function set(patch: Partial<AskState>): void {
   state = { ...state, ...patch }
@@ -63,19 +63,23 @@ export function askQuestion(
   if (!q) return Promise.resolve({ ok: false, error: '' })
   if (asking) return Promise.resolve({ ok: false, error: tt('misc.ai.alreadyRunning') })
   asking = true
+  reqSeq += 1
+  const reqId = `ask-${Date.now().toString(36)}-${reqSeq}`
   set({
     phase: 'asking',
     askedQuestion: q,
     answer: '',
     error: null,
-    startedAt: Date.now()
+    startedAt: Date.now(),
+    reqId
   })
   // 监听注册在 store 流程内：组件卸载不取消订阅，流式继续写入 store
-  const off = window.ipInsight.onAskChunk((d) => {
-    set({ answer: state.answer + d })
+  const off = window.ipInsight.onAskChunk((e) => {
+    if (e.reqId && state.reqId && e.reqId !== reqId) return
+    set({ answer: state.answer + e.delta })
   })
   return window.ipInsight
-    .askAi({ results, question: q, consistency, diagLines })
+    .askAi({ reqId, results, question: q, consistency, diagLines })
     .then((res: AiAnalyzeResponse) => {
       asking = false
       off()
@@ -97,5 +101,5 @@ export function askQuestion(
 
 export function resetAsk(): void {
   if (asking) return
-  set({ phase: 'idle', askedQuestion: '', answer: '', error: null, startedAt: null })
+  set({ phase: 'idle', askedQuestion: '', answer: '', error: null, startedAt: null, reqId: null })
 }

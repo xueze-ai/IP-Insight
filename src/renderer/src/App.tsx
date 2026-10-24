@@ -4,6 +4,7 @@ import { AppShell } from './shell/AppShell'
 import { Dashboard } from './pages/Dashboard'
 import { IpInfo } from './pages/IpInfo'
 import { NetworkQuality } from './pages/NetworkQuality'
+import { ExitDiagnostics } from './pages/ExitDiagnostics'
 import { RiskAnalysis } from './pages/RiskAnalysis'
 import { FingerprintPage } from './pages/Fingerprint'
 import { History } from './pages/History'
@@ -66,6 +67,8 @@ export default function App(): JSX.Element {
           <IpInfo />
         ) : page === 'networkQuality' ? (
           <NetworkQuality />
+        ) : page === 'exitDiag' ? (
+          <ExitDiagnostics />
         ) : page === 'risk' ? (
           <RiskAnalysis />
         ) : page === 'fingerprint' ? (

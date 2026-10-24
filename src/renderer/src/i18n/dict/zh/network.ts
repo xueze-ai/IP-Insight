@@ -84,7 +84,8 @@ export const zhNetwork = {
     incidentsTitle: '异常服务当前事件',
     incidentLine: '· {name}：{incident}',
     incidentStatus: '（{status}）',
-    unknown: '状态未知'
+    unknown: '状态未知',
+    meaning: '服务可用性：展示各服务官方状态页的公开信息（本机不发起对服务本身的探测）；状态正常同样不代表账号、地区或权限已开通。'
   },
   reach: {
     title: '本机可达性 · 真实 HTTP 探测',
@@ -95,6 +96,7 @@ export const zhNetwork = {
     fail: '不可达',
     failMs: '不可达 · {ms} ms',
     probedAt: '探测时间：{time}',
+    meaning: '本机可达性：测试本机能否收到目标响应；收到响应不代表账号、地区、权限或整个服务已经可用。',
     note: '探测在隐藏浏览器页内发起（与真实浏览器相同的网络栈与请求头，遵循系统代理）；收到任何响应记为可达，网络层失败（含重试 1 次后仍失败）或 8s 超时记为不可达并显示真实错误。若你的代理仅配置在浏览器插件内而非系统代理，本探测不经过该插件。结果只反映本次探测时刻。'
   }
 }

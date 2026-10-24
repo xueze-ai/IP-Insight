@@ -316,6 +316,8 @@ export interface AiTestResponse {
 }
 
 export interface AiAnalyzeRequest {
+  /** 请求 ID：流式片段与历史回写绑定同一快照；切换视图后旧请求不污染新视图 */
+  reqId?: string
   results: NormalizedIPResult[]
   consistency: string
   /** 0.2.2 起附带的结构化出口诊断摘要（有界事实行，非原始日志） */
@@ -335,6 +337,7 @@ export interface AiAnalyzeResponse {
 
 // ------------ AI 场景询问 ------------
 export interface AiAskRequest {
+  reqId?: string
   results: NormalizedIPResult[]
   question: string
   consistency?: string
@@ -352,6 +355,8 @@ export interface HistorySourceSummary {
 
 export interface HistoryRecord {
   id: string
+  /** 记录类型：detection=综合检测（默认/旧记录）；exitDiag=独立出口诊断快照 */
+  kind?: 'detection' | 'exitDiag'
   startedAt: string
   finishedAt: string
   currentIp?: string
@@ -434,7 +439,7 @@ export interface ReportModel {
       status: string
       rows: { label: string; value: string }[]
     }[]
-    // 探测项明细表（模块 / 目标 / 来源 / 方式 / 出口IP / 节点 / 状态 / 耗时 / 错误）
+    // 探测项明细表（模块 / 目标 / 来源 / 方式 / 出口IP / 归属 / 节点 / 缓存信号 / ECS / 状态 / 耗时 / 错误）
     probes: {
       module: string
       target?: string
@@ -443,7 +448,10 @@ export interface ReportModel {
       via: string
       status: string
       ip?: string
+      geo?: string
       node?: string
+      cache?: string
+      ecs?: string
       httpStatus?: number
       durationMs?: number
       error?: string

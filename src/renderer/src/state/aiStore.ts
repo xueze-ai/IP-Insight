@@ -3,8 +3,9 @@ import { tt } from '../i18n'
 
 // =============================================================
 // AI 分析状态（模块级单例）
-// 与 DetectionContext / speedtestStore 同样的思路：分析耗时较长，
-// 状态提升到模块层，切换页面不丢结果、不重复请求。
+// · 请求 ID 绑定：流式片段携带 reqId，只有「当前视图的请求」才写入展示文本；
+//   切换检测 / 载入历史后，旧请求的迟到片段不再污染新视图。
+// · 历史回写由页面在完成时按「发起时捕获的 recordId」执行（见 AiAnalysis）。
 // =============================================================
 
 export type AiPhase = 'idle' | 'running' | 'done' | 'error'
@@ -17,6 +18,8 @@ export interface AiState {
   error: string | null
   meta: { provider: string; model: string; ms: number } | null
   startedAt: number | null
+  /** 当前视图绑定的请求 ID */
+  reqId: string | null
 }
 
 let state: AiState = {
@@ -25,12 +28,14 @@ let state: AiState = {
   text: '',
   error: null,
   meta: null,
-  startedAt: null
+  startedAt: null,
+  reqId: null
 }
 const listeners = new Set<() => void>()
 let running = false
 let unsubChunk: (() => void) | null = null
 let unsubStage: (() => void) | null = null
+let reqSeq = 0
 
 function set(patch: Partial<AiState>): void {
   state = { ...state, ...patch }
@@ -48,12 +53,18 @@ export function subscribeAi(cb: () => void): () => void {
   }
 }
 
+function newReqId(): string {
+  reqSeq += 1
+  return `ai-${Date.now().toString(36)}-${reqSeq}`
+}
+
 export function startAnalysis(
   results: Parameters<typeof window.ipInsight.analyzeAi>[0]['results'],
   consistency: string,
   diagLines?: string[]
 ): Promise<AiAnalyzeResponse> {
   if (running) return Promise.resolve({ ok: false, error: tt('misc.ai.alreadyRunning') })
+  const reqId = newReqId()
   running = true
   set({
     phase: 'running',
@@ -61,22 +72,25 @@ export function startAnalysis(
     text: '',
     error: null,
     meta: null,
-    startedAt: Date.now()
+    startedAt: Date.now(),
+    reqId
   })
   if (!unsubChunk) {
-    unsubChunk = window.ipInsight.onAiChunk((d) => {
-      set({ text: state.text + d, stage: 'streaming' })
+    unsubChunk = window.ipInsight.onAiChunk((e) => {
+      if (e.reqId && state.reqId && e.reqId !== state.reqId) return // 旧请求的迟到片段
+      set({ text: state.text + e.delta, stage: 'streaming' })
     })
   }
   if (!unsubStage) {
-    unsubStage = window.ipInsight.onAiStage((s) => {
-      if (s === 'connected') set({ stage: 'connected' })
-      if (s === 'streaming') set({ stage: 'streaming' })
+    unsubStage = window.ipInsight.onAiStage((e) => {
+      if (e.reqId && state.reqId && e.reqId !== state.reqId) return
+      if (e.stage === 'connected') set({ stage: 'connected' })
+      if (e.stage === 'streaming') set({ stage: 'streaming' })
     })
   }
   const t0 = Date.now()
   return window.ipInsight
-    .analyzeAi({ results, consistency, diagLines })
+    .analyzeAi({ reqId, results, consistency, diagLines })
     .then((res: AiAnalyzeResponse) => {
       running = false
       if (res.ok && res.text) {
@@ -111,5 +125,5 @@ export function startAnalysis(
 
 export function resetAnalysis(): void {
   if (running) return
-  set({ phase: 'idle', text: '', error: null, meta: null })
+  set({ phase: 'idle', text: '', error: null, meta: null, reqId: null })
 }

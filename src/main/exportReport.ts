@@ -158,11 +158,14 @@ export function buildTxt(model: ReportModel): string {
         source: mt('reportDiagColSource'),
         status: mt('reportDiagColStatus'),
         ip: mt('reportDiagColIp'),
+        geo: mt('reportDiagColGeo'),
         node: mt('reportDiagColNode'),
+        cache: mt('reportDiagColCache'),
+        ecs: mt('reportDiagColEcs'),
         ms: mt('reportDiagColMs'),
         err: mt('reportDiagColErr')
       }
-      L.push(`${T.module} | ${T.target} | ${T.source} | ${T.status} | ${T.ip} | ${T.node} | ${T.ms} | ${T.err}`)
+      L.push(`${T.module} | ${T.target} | ${T.source} | ${T.status} | ${T.ip} | ${T.geo} | ${T.node} | ${T.cache} | ${T.ecs} | ${T.ms} | ${T.err}`)
       for (const p of model.diag.probes) {
         L.push(
           [
@@ -171,7 +174,10 @@ export function buildTxt(model: ReportModel): string {
             p.source,
             p.status,
             p.ip ?? '—',
+            p.geo ?? '',
             p.node ?? '—',
+            p.cache ?? '',
+            p.ecs ?? '',
             p.durationMs != null ? `${p.durationMs}ms` : '—',
             p.error ?? ''
           ].join(' | ')
@@ -241,14 +247,17 @@ export function buildHtml(model: ReportModel): string {
       source: mt('reportDiagColSource'),
       status: mt('reportDiagColStatus'),
       ip: mt('reportDiagColIp'),
+      geo: mt('reportDiagColGeo'),
       node: mt('reportDiagColNode'),
+      cache: mt('reportDiagColCache'),
+      ecs: mt('reportDiagColEcs'),
       ms: mt('reportDiagColMs'),
       err: mt('reportDiagColErr')
     }
     const probeRows = dg.probes
       .map(
         (p) =>
-          `<tr><td>${esc(p.module)}</td><td class="mono" style="word-break:break-all">${esc(p.target ?? '—')}</td><td>${esc(p.source)}</td><td>${esc(p.status)}</td><td class="mono" style="word-break:break-all">${esc(p.ip ?? '—')}</td><td class="mono">${esc(p.node ?? '—')}</td><td style="text-align:right">${p.durationMs != null ? `${p.durationMs}ms` : '—'}</td><td>${esc(p.error ?? '')}</td></tr>`
+          `<tr><td>${esc(p.module)}</td><td class="mono" style="word-break:break-all">${esc(p.target ?? '—')}</td><td>${esc(p.source)}</td><td>${esc(p.status)}</td><td class="mono" style="word-break:break-all">${esc(p.ip ?? '—')}</td><td>${esc(p.geo ?? '')}</td><td class="mono">${esc(p.node ?? '—')}</td><td class="mono" style="max-width:180px;word-break:break-all">${esc(p.cache ?? '')}</td><td class="mono">${esc(p.ecs ?? '')}</td><td style="text-align:right">${p.durationMs != null ? `${p.durationMs}ms` : '—'}</td><td>${esc(p.error ?? '')}</td></tr>`
       )
       .join('\n')
     return `
@@ -256,7 +265,7 @@ export function buildHtml(model: ReportModel): string {
   ${modCards}
   <div class="card" style="overflow-x:auto">
     <table>
-      <thead><tr><th>${esc(T.module)}</th><th>${esc(T.target)}</th><th>${esc(T.source)}</th><th>${esc(T.status)}</th><th>${esc(T.ip)}</th><th>${esc(T.node)}</th><th style="text-align:right">${esc(T.ms)}</th><th>${esc(T.err)}</th></tr></thead>
+      <thead><tr><th>${esc(T.module)}</th><th>${esc(T.target)}</th><th>${esc(T.source)}</th><th>${esc(T.status)}</th><th>${esc(T.ip)}</th><th>${esc(T.geo)}</th><th>${esc(T.node)}</th><th>${esc(T.cache)}</th><th>${esc(T.ecs)}</th><th style="text-align:right">${esc(T.ms)}</th><th>${esc(T.err)}</th></tr></thead>
       <tbody>${probeRows}</tbody>
     </table>
   </div>`

@@ -42,6 +42,7 @@ export const enDashboard: typeof zhDashboard = {
   diagNone: 'No public egress observed this run',
   diagFailed: '{n} vantage point(s) failed',
   diagMore: 'Open full exit diagnostics →',
+  diagOnlyHint: 'This is a standalone exit-diagnostics snapshot (no multi-source IP detection); full results live on the Exit Diagnostics page.',
   explain: {
     show: 'What do these fields mean?',
     hide: 'Hide explanations',

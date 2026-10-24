@@ -194,6 +194,7 @@ export interface ReportInput {
 /** 诊断状态 → 报告用本地化文本 */
 function diagStatusText(s: DiagStatus | undefined): string {
   const map: Record<DiagStatus, string> = {
+    queued: tt('diag.status.queued'),
     pending: tt('diag.status.pending'),
     running: tt('diag.status.running'),
     success: tt('diag.status.success'),
@@ -232,6 +233,8 @@ function buildDiagSection(diag: DiagRunSummary): ReportModel['diag'] {
           value: nodes.slice(0, 6).map((p) => `${p.cdn ?? p.target ?? ''} ${p.node}`).join('；') + (nodes.length > 6 ? ` …(${nodes.length})` : '')
         })
       }
+      const ecs = [...new Set(probes.filter((p) => p.ecsSubnet).map((p) => p.ecsSubnet as string))]
+      if (ecs.length) rows.push({ label: tt('diag.col.ecs'), value: ecs.join('；') })
       const bad = probes.filter((p) => p.status === 'failed' || p.status === 'timeout')
       if (bad.length) {
         rows.push({
@@ -246,6 +249,12 @@ function buildDiagSection(diag: DiagRunSummary): ReportModel['diag'] {
         rows
       }
     })
+  const geoText = (p: DiagRunSummary['probes']['publicIp'][number]): string | undefined =>
+    p.geo
+      ? [p.geo.country, p.geo.city, p.geo.isp].filter(Boolean).join(' · ') + `（${p.geo.source}）`
+      : p.ip
+        ? tt('diag.geo.notFetched')
+        : undefined
   const probeRows = moduleIds.flatMap((id) =>
     (diag.probes[id] ?? []).map((p) => ({
       module: tt(DIAG_MODULE_KEYS[id]),
@@ -255,7 +264,10 @@ function buildDiagSection(diag: DiagRunSummary): ReportModel['diag'] {
       via: p.via,
       status: diagStatusText(p.status),
       ip: p.ip,
+      geo: geoText(p),
       node: p.node,
+      cache: p.cacheSignals?.length ? p.cacheSignals.join(' → ') : undefined,
+      ecs: p.ecsSubnet,
       httpStatus: p.httpStatus,
       durationMs: p.durationMs,
       error: p.error
@@ -408,7 +420,7 @@ export function diagAiLines(diag: DiagRunSummary): string[] {
         } else if (p.node) {
           lines.push(`[${moduleNames[id]}] ${target}: ${tt('diag.status.success')}, node ${p.node}, via ${p.via}, source ${p.source}`)
         } else {
-          lines.push(`[${moduleNames[id]}] ${target}: ${tt('diag.keyResult.reachableOnly')}, via ${p.via}`)
+          lines.push(`[${moduleNames[id]}] ${target}: ${tt('diag.statusLong.reachOnly')}, via ${p.via}`)
         }
       } else if (p.status !== 'pending' && p.status !== 'skipped') {
         lines.push(`[${moduleNames[id]}] ${target}: ${diagStatusText(p.status)}${p.error ? ` (${p.error.slice(0, 60)})` : ''}`)

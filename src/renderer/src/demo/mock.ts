@@ -8,7 +8,7 @@ import type {
   ServiceStatusFeed,
   UpdateStatus
 } from '@shared/types'
-import type { DiagEvent, DiagRun, DiagRunSummary } from '@shared/diag'
+import type { DiagEvent, DiagEvidence, DiagGeo, DiagProbe, DiagRun, DiagRunSummary } from '@shared/diag'
 
 // =============================================================
 // Demo 模式（浏览器预览用）
@@ -123,8 +123,8 @@ const GPT: NormalizedIPResult = {
   flags: { residential: true, datacenter: false, vpn: false, proxy: false, tor: false, crawler: false, abuser: false },
   riskScore: 96,
   riskLabel: 'ChatGPT 出口信任分 96/100（越高越安全）· 极度纯净',
-  dnsLeak: { status: '可能泄露', exitIp: '203.0.113.99', provider: 'Example DNS', detail: 'sg' },
-  webRTCLeak: { status: '未检测到泄露' },
+  dnsLeak: { status: 'DNS 请求出口与主出口不同（Demo 样例，不判泄露）', verdict: 'unknown', exitIp: '203.0.113.99', provider: 'Example DNS', detail: 'sg' },
+  webRTCLeak: { status: '未检测到泄露', verdict: 'clean' },
   fingerprint: {
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36',
     browser: 'Chrome',
@@ -225,39 +225,37 @@ const REACH: ReachProbeResult[] = [
 ]
 
 const DEMO_AI = `## 结论速览
-- IP 综合评分：**62 / 100**（主出口为数据中心广播段，黑名单有少量命中，但 ChatGPT 分流出口极为纯净）
-- IP 原生性：★★☆☆☆
-- 风险等级：**中风险**
-- VPN：未发现
-- Proxy：**多源存在分歧（Ping0 命中 / Net.Coffee 未命中），当前无法确认**
-- Tor：未发现
-- 住宅 IP：主出口否；ChatGPT 分流出口为住宅
-- 数据中心：是（主出口）
-- 共享出口：可能（10–100 区间）
+- 出口概况：主出口 203.0.113.7（示例数据中心，AS64512）；另有 3 个不同出口见诊断明细
+- IP 综合评分：62 / 100（数据中心广播段 + 黑名单少量命中；ChatGPT 分流出口很干净）
+- IP 原生性：★★☆☆☆（来源数据库口径，不代表好坏）
+- 风险等级：中风险（程序把各源不同量表归一后取中位数的计算值，非机构实测）
+- VPN / Tor：未见来源标记；Proxy：来源判断不一致（Ping0 命中 / Net.Coffee 未命中），当前无法确认
+- 住宅：主出口否（数据中心）；ChatGPT 分流出口为住宅
+- 出口诊断要点：测得 3 个 HTTP 出口（主出口 / ChatGPT IPv6 / Claude IPv6）；CDN 命中节点 6 个（如 CloudFront HKG61-P1）；DNS 递归出口 3 个（AliDNS、114DNS、Google），与 HTTP 出口不同属常见现象，不判泄露
 
-## 【AI 综合分析】
-主出口 203.0.113.7 属于文档保留地址段示例（AS64512），三源一致判定为数据中心 / 托管类型，且为广播 IP；Ping0 与 Net.Coffee 在 Proxy 判定上存在分歧，按规则不下确定结论。ChatGPT 流量被分流至 198.51.100.23（示例住宅出口，信任分 96/100），但 DNS 出口与主出口不一致，存在位置暴露面。
-
-## 【多源一致性】
-- 一致项：数据中心、VPN、Tor、位置（新加坡）
-- 分歧项：Proxy（Ping0 命中 / Net.Coffee 未命中 / IPPure 未提供）
-- 说明：Net.Coffee 与 IPPure 后端部分同源，二者一致不等于独立互证；Ping0 相对独立。
-
-## 【异常项目】
+## 【当前能够确认的情况】
+- 主出口为数据中心广播段，三源口径一致
+- ChatGPT / Claude 访问走了不同的 IPv6 出口（目标各自回显）
 - DNSBL 命中 2/12（Spamhaus ZEN、GBUdb Truncate）
-- DNS 泄露：可能泄露（出口 203.0.113.99 与 ChatGPT 出口不一致）
-- 设备时区（Asia/Singapore）与 ChatGPT 出口时区（Asia/Tokyo）不一致
 
-## 【风险说明】
-主出口为机房广播段且共享人数区间偏大，用于高信任场景（电商店铺、支付风控敏感业务）时可能被降级对待；黑名单命中以 Spam 类为主，邮件类业务受影响概率较高。
+## 【值得注意的项目】
+- Proxy 判定存在来源分歧，无法确认
+- WebRTC 观察到的出口与主出口不同（检测源报告口径）
+- 浏览器时区（Asia/Singapore）与 ChatGPT 出口地区（日本）不一致
 
-## 【适合场景】
-- 一般浏览、资讯采集、开发调试
-- AI 服务访问（已分流至纯净住宅出口）
+## 【还不能确认的内容】
+- 是否真的「未被标记代理」：IPPure 未提供该字段
+- DNS 出口差异是否造成位置暴露：需要结合你自己的分流配置判断，本工具不替你下结论
 
-## 【不建议场景】
-- 电商多店铺运营、广告账户等强风控场景（主出口为机房广播段）
-- 外发邮件类业务（Spam 类黑名单命中）
+## 【多源一致性与口径】
+- 一致：数据中心 / VPN / Tor / 位置
+- 分歧：Proxy（逐源判断见上）；Net.Coffee 与 IPPure 后端部分同源，二者一致不等于独立互证
+- 各源分数：Ping0 风控值越高越危险；Net.Coffee 信任分越高越安全
+
+## 【建议下一步】
+- 需要高信誉场景（电商、支付）：换住宅 ISP 原生出口
+- 只关心 AI 服务：现有分流已足够，无需动主出口
+- 想确认 DNS 路径：在「网络出口诊断 → DNS 出口查询」按解析器逐个复测
 `
 
 function demoHistory(): HistoryRecord[] {
@@ -331,10 +329,18 @@ const diagListeners = new Set<(e: DiagEvent) => void>()
 // 全部使用文档保留地址，显著标注样例；不回退到 Demo 于真实失败场景。
 // =============================================================
 
+const geo = (country: string, city: string, isp: string, asn: string): DiagGeo => ({
+  country, city, isp, asn, source: 'ip-api.com（Demo）', fetchedAt: nowIso()
+})
+const evHttp = (snippet: string, note: string): DiagEvidence[] => [
+  { kind: 'http', status: 200, durationMs: 240, snippet, note }
+]
+
 const DEMO_DIAG_RUN: DiagRun = {
   runId: 'diag-demo-0001',
   startedAt: nowIso(),
   status: 'partial',
+  finishedReason: 'completed',
   origin: 'network',
   modules: [
     {
@@ -342,46 +348,34 @@ const DEMO_DIAG_RUN: DiagRun = {
       status: 'partial',
       probes: [
         {
-          id: 'trace-www.cloudflare.com',
-          source: 'cloudflare',
-          sourceUrl: 'https://www.cloudflare.com/zh-cn/privacy/',
-          target: 'www.cloudflare.com',
-          targetHost: 'www.cloudflare.com',
-          method: 'HTTP GET /cdn-cgi/trace',
-          via: 'main-http',
-          status: 'success',
-          ip: MAIN_IP,
-          family: 'ipv4',
-          node: 'SIN',
-          country: 'SG',
-          httpStatus: 200,
-          durationMs: 210,
-          evidence: [{ kind: 'http', status: 200, durationMs: 210, snippet: 'ip=203.0.113.7\ncolo=SIN\nloc=SG\n…', note: '（Demo 样例）Cloudflare trace 原文' }]
+          id: 'trace-www.cloudflare.com', source: 'cloudflare', sourceUrl: 'https://www.cloudflare.com/',
+          target: 'www.cloudflare.com', targetHost: 'www.cloudflare.com', url: 'https://www.cloudflare.com/cdn-cgi/trace',
+          method: 'HTTP GET /cdn-cgi/trace（主进程 HTTP，跟随系统代理）', mechKey: 'http-proxy', via: 'main-http',
+          status: 'success', ip: MAIN_IP, family: 'ipv4', geo: geo('新加坡（Demo）', 'Singapore', 'Example Broadband', 'AS64512'),
+          httpStatus: 200, durationMs: 210,
+          evidence: evHttp('ip=203.0.113.7\ncolo=SIN\nloc=SG', '（Demo 样例）Cloudflare trace 原文')
         },
         {
-          id: 'trace-speed.cloudflare.com',
-          source: 'cloudflare',
-          target: 'speed.cloudflare.com',
-          targetHost: 'speed.cloudflare.com',
-          method: 'HTTP GET /cdn-cgi/trace',
-          via: 'main-http',
-          status: 'success',
-          ip: MAIN_IP,
-          family: 'ipv4',
-          node: 'SIN',
-          httpStatus: 200,
-          durationMs: 230
+          id: 'trace-speed.cloudflare.com', source: 'cloudflare', sourceUrl: 'https://speed.cloudflare.com/',
+          target: 'speed.cloudflare.com', targetHost: 'speed.cloudflare.com', url: 'https://speed.cloudflare.com/cdn-cgi/trace',
+          method: 'HTTP GET /cdn-cgi/trace（主进程 HTTP，跟随系统代理）', mechKey: 'http-proxy', via: 'main-http',
+          status: 'success', ip: MAIN_IP, family: 'ipv4',
+          geo: geo('新加坡（Demo）', 'Singapore', 'Example Broadband', 'AS64512'),
+          httpStatus: 200, durationMs: 230
         },
         {
-          id: 'sukka-page',
-          source: 'sukka-page',
-          sourceUrl: 'https://ip.skk.moe/',
-          target: 'ip.skk.moe',
-          targetHost: 'ip.skk.moe',
-          method: '页面流程提取',
-          via: 'browser-page',
-          status: 'failed',
-          error: '（Demo 样例）站点返回人机验证页（Cloudflare 挑战）。本应用不绕过验证。',
+          id: 'trace-v6-www.cloudflare.com', source: 'cloudflare', sourceUrl: 'https://www.cloudflare.com/',
+          target: 'www.cloudflare.com（IPv6）', targetHost: 'www.cloudflare.com', url: 'https://www.cloudflare.com/cdn-cgi/trace',
+          method: 'HTTP GET /cdn-cgi/trace（Node https 强制 IPv6 直连，不经应用层代理）', mechKey: 'node-direct', via: 'node-direct',
+          status: 'unsupported', error: '（Demo 样例）未取得 IPv6 出口（本机无 IPv6 连接或网络策略阻止）',
+          durationMs: 120,
+          evidence: [{ kind: 'http', durationMs: 120, note: '（Demo 样例）ENETUNREACH：Node https family=6 直连' }]
+        },
+        {
+          id: 'sukka-page', source: 'sukka-page', sourceUrl: 'https://ip.skk.moe/',
+          target: 'ip.skk.moe', targetHost: 'ip.skk.moe', url: 'https://ip.skk.moe/',
+          method: '页面流程提取（ip.skk.moe 自身检测完成后读取其展示结果）', mechKey: 'page', via: 'browser-page',
+          status: 'failed', error: '（Demo 样例）站点返回人机验证页（Cloudflare 挑战）。按合规约束不绕过验证。',
           durationMs: 4100
         }
       ]
@@ -390,34 +384,52 @@ const DEMO_DIAG_RUN: DiagRun = {
       id: 'splitTunnel',
       status: 'partial',
       probes: [
-        { id: 'split-ChatGPT', source: 'cloudflare', target: 'ChatGPT', targetHost: 'chatgpt.com', method: 'HTTP GET /cdn-cgi/trace', via: 'main-http', status: 'success', ip: GPT_IP, family: 'ipv4', node: 'NRT', httpStatus: 200, durationMs: 320 },
-        { id: 'split-Claude', source: 'cloudflare', target: 'Claude', targetHost: 'claude.ai', method: 'HTTP GET /cdn-cgi/trace', via: 'main-http', status: 'success', ip: GPT_IP, family: 'ipv4', node: 'NRT', httpStatus: 200, durationMs: 300 },
-        { id: 'split-GitHub', source: 'cloudflare', target: 'GitHub', targetHost: 'gitlab.com', method: 'HTTP GET /cdn-cgi/trace', via: 'main-http', status: 'success', ip: MAIN_IP, family: 'ipv4', node: 'SIN', httpStatus: 200, durationMs: 260 },
-        { id: 'split-百度', source: 'target-site', target: '百度', targetHost: 'www.baidu.com', method: 'HTTP GET', via: 'main-http', status: 'success', httpStatus: 200, durationMs: 40 },
-        { id: 'split-Discord', source: 'cloudflare', target: 'Discord', targetHost: 'discord.com', method: 'HTTP GET /cdn-cgi/trace', via: 'main-http', status: 'timeout', error: '（Demo 样例）probe hard-timeout', durationMs: 13000 }
+        { id: 'split-Cloudflare', source: 'cloudflare', sourceUrl: 'https://www.cloudflare.com/', target: 'Cloudflare', targetHost: 'www.cloudflare.com', url: 'https://www.cloudflare.com/cdn-cgi/trace', method: 'HTTP GET /cdn-cgi/trace', mechKey: 'http-proxy', via: 'main-http', category: 'intl', status: 'success', ip: MAIN_IP, family: 'ipv4', geo: geo('新加坡（Demo）', 'Singapore', 'Example Broadband', 'AS64512'), httpStatus: 200, durationMs: 240, evidence: evHttp('ip=203.0.113.7', '（Demo）trace') },
+        { id: 'split-ChatGPT', source: 'cloudflare', sourceUrl: 'https://chatgpt.com/', target: 'ChatGPT', targetHost: 'chatgpt.com', url: 'https://chatgpt.com/cdn-cgi/trace', method: 'HTTP GET /cdn-cgi/trace', mechKey: 'http-proxy', via: 'main-http', category: 'ai', status: 'success', ip: GPT_IP, family: 'ipv6', geo: geo('日本（Demo）', 'Tokyo', 'Example Residential KK', 'AS64513'), node: 'NRT', httpStatus: 200, durationMs: 320, evidence: evHttp('ip=2001:db8:2686::1\ncolo=NRT', '（Demo）trace：IPv6 出口样例') },
+        { id: 'split-Claude', source: 'cloudflare', sourceUrl: 'https://claude.ai/', target: 'Claude', targetHost: 'claude.ai', url: 'https://claude.ai/cdn-cgi/trace', method: 'HTTP GET /cdn-cgi/trace', mechKey: 'http-proxy', via: 'main-http', category: 'ai', status: 'success', ip: GPT_IP, family: 'ipv6', geo: geo('日本（Demo）', 'Tokyo', 'Example Residential KK', 'AS64513'), node: 'NRT', httpStatus: 200, durationMs: 300 },
+        { id: 'split-OpenAI API', source: 'cloudflare', sourceUrl: 'https://api.openai.com/', target: 'OpenAI API', targetHost: 'api.openai.com', url: 'https://api.openai.com/cdn-cgi/trace', method: 'HTTP GET /cdn-cgi/trace', mechKey: 'http-proxy', via: 'main-http', category: 'ai', status: 'success', ip: '198.51.100.131', family: 'ipv4', geo: geo('日本（Demo）', 'Tokyo', 'Example Cloud', 'AS64514'), node: 'NRT', httpStatus: 200, durationMs: 556 },
+        { id: 'split-Anthropic', source: 'cloudflare', sourceUrl: 'https://www.anthropic.com/', target: 'Anthropic', targetHost: 'www.anthropic.com', url: 'https://www.anthropic.com/cdn-cgi/trace', method: 'HTTP GET /cdn-cgi/trace', mechKey: 'http-proxy', via: 'main-http', category: 'ai', status: 'success', ip: '198.51.100.131', family: 'ipv4', geo: geo('日本（Demo）', 'Tokyo', 'Example Cloud', 'AS64514'), node: 'NRT', httpStatus: 200, durationMs: 540 },
+        { id: 'split-Discord', source: 'cloudflare', sourceUrl: 'https://discord.com/', target: 'Discord', targetHost: 'discord.com', url: 'https://discord.com/cdn-cgi/trace', method: 'HTTP GET /cdn-cgi/trace', mechKey: 'http-proxy', via: 'main-http', category: 'intl', status: 'failed', error: '（Demo 样例）响应中无 ip 字段（目标返回异常页）', httpStatus: 403, durationMs: 552 },
+        { id: 'split-GitLab', source: 'cloudflare', sourceUrl: 'https://gitlab.com/', target: 'GitLab', targetHost: 'gitlab.com', url: 'https://gitlab.com/cdn-cgi/trace', method: 'HTTP GET /cdn-cgi/trace', mechKey: 'http-proxy', via: 'main-http', category: 'dev', status: 'success', ip: MAIN_IP, family: 'ipv4', geo: geo('新加坡（Demo）', 'Singapore', 'Example Broadband', 'AS64512'), node: 'SIN', httpStatus: 200, durationMs: 260 },
+        { id: 'split-Stack Overflow', source: 'cloudflare', sourceUrl: 'https://stackoverflow.com/', target: 'Stack Overflow', targetHost: 'stackoverflow.com', url: 'https://stackoverflow.com/cdn-cgi/trace', method: 'HTTP GET /cdn-cgi/trace', mechKey: 'http-proxy', via: 'main-http', category: 'dev', status: 'success', ip: MAIN_IP, family: 'ipv4', node: 'LAX', httpStatus: 200, durationMs: 420 },
+        { id: 'split-ipinfo.io', source: 'target-api', sourceUrl: 'https://ipinfo.io/', target: 'ipinfo.io', targetHost: 'ipinfo.io', url: 'https://ipinfo.io/ip', method: 'HTTP GET（目标公开回显接口）', mechKey: 'http-proxy', via: 'main-http', category: 'intl', status: 'success', ip: MAIN_IP, family: 'ipv4', httpStatus: 200, durationMs: 180 },
+        { id: 'split-IP.SB', source: 'target-api', sourceUrl: 'https://ip.sb/', target: 'IP.SB', targetHost: 'api.ip.sb', url: 'https://api.ip.sb/ip', method: 'HTTP GET（目标公开回显接口）', mechKey: 'http-proxy', via: 'main-http', category: 'intl', status: 'success', ip: MAIN_IP, family: 'ipv4', httpStatus: 200, durationMs: 220 },
+        { id: 'split-哔哩哔哩', source: 'target-api', sourceUrl: 'https://www.bilibili.com/', target: '哔哩哔哩', targetHost: 'api.bilibili.com', url: 'https://api.bilibili.com/x/web-interface/zone', method: 'HTTP GET（目标公开回显接口）', mechKey: 'http-proxy', via: 'main-http', category: 'cn', status: 'success', ip: '198.51.100.36', family: 'ipv4', geo: { country: '中国（Demo）', region: '示例省（Demo）', city: '示例市（Demo）', isp: '移动（Demo）', source: '目标自身提供', fetchedAt: nowIso() }, httpStatus: 200, durationMs: 60 },
+        { id: 'split-IPIP.net', source: 'target-api', sourceUrl: 'https://www.ipip.net/', target: 'IPIP.net', targetHost: 'myip.ipip.net', url: 'https://myip.ipip.net/', method: 'HTTP GET（目标公开回显接口）', mechKey: 'http-proxy', via: 'main-http', category: 'cn', status: 'success', ip: '198.51.100.36', family: 'ipv4', geo: { country: '中国（Demo）', region: '示例省（Demo）', city: '示例市（Demo）', isp: 'example-isp.test（Demo）', source: '目标自身提供', fetchedAt: nowIso() }, httpStatus: 200, durationMs: 45 },
+        { id: 'split-GitHub', source: 'target-site', sourceUrl: 'https://github.com/', target: 'GitHub', targetHost: 'github.com', url: 'https://github.com/', method: 'HTTP GET（不回显出口）', mechKey: 'http-proxy', via: 'main-http', category: 'dev', status: 'success', httpStatus: 200, durationMs: 1397 },
+        { id: 'split-百度', source: 'target-site', sourceUrl: 'https://www.baidu.com/', target: '百度', targetHost: 'www.baidu.com', url: 'https://www.baidu.com/', method: 'HTTP GET（不回显出口）', mechKey: 'http-proxy', via: 'main-http', category: 'cn', status: 'success', httpStatus: 200, durationMs: 40 },
+        { id: 'split-网易云音乐', source: 'target-site', sourceUrl: 'https://music.163.com/', target: '网易云音乐', targetHost: 'music.163.com', url: 'https://music.163.com/', method: 'HTTP GET（不回显出口）', mechKey: 'http-proxy', via: 'main-http', category: 'cn', status: 'timeout', error: '（Demo 样例）请求超时（9000ms）', durationMs: 9000 }
       ]
     },
     {
       id: 'cdnNode',
       status: 'success',
       probes: [
-        { id: 'cdn-Cloudflare', source: 'cdn-target', target: 'Cloudflare', targetHost: 'www.cloudflare.com', method: 'HTTP GET /cdn-cgi/trace', via: 'main-http', status: 'success', node: 'SIN', cdn: 'Cloudflare', httpStatus: 200, durationMs: 220 },
-        { id: 'cdn-Fastly', source: 'cdn-target', target: 'Fastly', targetHost: 'any.pops.fastly-analytics.com', method: 'HTTP GET', via: 'main-http', status: 'success', node: 'SIN', cdn: 'Fastly', httpStatus: 200, durationMs: 260 },
-        { id: 'cdn-AWS CloudFront', source: 'cdn-target', target: 'AWS CloudFront', targetHost: 'djlzvy5xcvhxt.cloudfront.net', method: 'HTTP GET', via: 'main-http', status: 'success', node: 'HKG', cdn: 'AWS CloudFront', httpStatus: 200, durationMs: 290 },
-        { id: 'cdn-Bunny Standard', source: 'cdn-target', target: 'Bunny Standard', targetHost: 'test.b-cdn.net', method: 'HTTP GET', via: 'main-http', status: 'success', node: 'JP1', cdn: 'Bunny Standard', httpStatus: 200, durationMs: 310 },
-        { id: 'cdn-CDN77', source: 'cdn-target', target: 'CDN77', targetHost: '1596384882.rsc.cdn77.org', method: 'HTTP GET', via: 'main-http', status: 'success', node: 'losangelesUSCA', cdn: 'CDN77', httpStatus: 200, durationMs: 380 },
-        { id: 'cdn-Zenlayer', source: 'cdn-target', target: 'Zenlayer', targetHost: 'test-perfops.ecn.zenlayer.net', method: 'HTTP GET', via: 'main-http', status: 'success', httpStatus: 200, durationMs: 330 }
+        { id: 'cdn-Cloudflare', source: 'cdn-target', sourceUrl: 'https://www.cloudflare.com/', target: 'Cloudflare', targetHost: 'www.cloudflare.com', url: 'https://www.cloudflare.com/cdn-cgi/trace', method: 'HTTP GET /cdn-cgi/trace', mechKey: 'http-proxy', via: 'main-http', status: 'success', node: 'SIN', cdn: 'Cloudflare', httpStatus: 200, durationMs: 142, cacheSignals: undefined },
+        { id: 'cdn-Cloudflare Speed', source: 'cdn-target', sourceUrl: 'https://speed.cloudflare.com/', target: 'Cloudflare Speed', targetHost: 'speed.cloudflare.com', url: 'https://speed.cloudflare.com/cdn-cgi/trace', method: 'HTTP GET /cdn-cgi/trace', mechKey: 'http-proxy', via: 'main-http', status: 'success', node: 'SIN', cdn: 'Cloudflare Speed', httpStatus: 200, durationMs: 148 },
+        { id: 'cdn-Fastly', source: 'cdn-target', sourceUrl: 'https://www.fastly.com/status', target: 'Fastly', targetHost: 'any.pops.fastly-analytics.com', url: 'https://any.pops.fastly-analytics.com', method: 'HTTP GET（响应头信号）', mechKey: 'http-proxy', via: 'main-http', status: 'success', node: 'cache-sin-wsss1830044-SIN', cdn: 'Fastly', httpStatus: 200, durationMs: 598, cacheSignals: ['HIT', '0'] },
+        { id: 'cdn-AWS CloudFront', source: 'cdn-target', sourceUrl: 'https://aws.amazon.com/cloudfront/', target: 'AWS CloudFront', targetHost: 'djlzvy5xcvhxt.cloudfront.net', url: 'https://djlzvy5xcvhxt.cloudfront.net/500b-bench.jpg', method: 'HTTP GET（响应头信号）', mechKey: 'http-proxy', via: 'main-http', status: 'success', node: 'HKG61-P1', cdn: 'AWS CloudFront', httpStatus: 200, durationMs: 430, cacheSignals: ['Miss from cloudfront', 'Hit from cloudfront'] },
+        { id: 'cdn-Bunny Standard', source: 'cdn-target', sourceUrl: 'https://bunny.net/', target: 'Bunny Standard', targetHost: 'test.b-cdn.net', url: 'https://test.b-cdn.net', method: 'HTTP GET（响应头信号）', mechKey: 'http-proxy', via: 'main-http', status: 'success', node: 'BunnyCDNE-JP1-1171', cdn: 'Bunny Standard', httpStatus: 200, durationMs: 449 },
+        { id: 'cdn-Bunny Volume', source: 'cdn-target', sourceUrl: 'https://bunny.net/', target: 'Bunny Volume', targetHost: 'testvideo.b-cdn.net', url: 'https://testvideo.b-cdn.net', method: 'HTTP GET（响应头信号）', mechKey: 'http-proxy', via: 'main-http', status: 'success', node: 'BunnyCDN-LA1-1108', cdn: 'Bunny Volume', httpStatus: 200, durationMs: 600 },
+        { id: 'cdn-CDN77', source: 'cdn-target', sourceUrl: 'https://www.cdn77.com/', target: 'CDN77', targetHost: '1596384882.rsc.cdn77.org', url: 'https://1596384882.rsc.cdn77.org/500b-bench.jpg', method: 'HTTP GET（响应头信号）', mechKey: 'http-proxy', via: 'main-http', status: 'success', node: 'hongkongHK', cdn: 'CDN77', httpStatus: 200, durationMs: 520, cacheSignals: ['HIT'] },
+        { id: 'cdn-CacheFly', source: 'cdn-target', sourceUrl: 'https://cachefly.com/', target: 'CacheFly', targetHost: 'cdnperf.cachefly.net', url: 'https://cdnperf.cachefly.net/500b-bench.jpg', method: 'HTTP GET（响应头信号）', mechKey: 'http-proxy', via: 'main-http', status: 'success', node: '28637:fA.hkg3:co:1610982815:cacheN.hkg3-01:H', cdn: 'CacheFly', httpStatus: 200, durationMs: 507, cacheSignals: ['H'] },
+        { id: 'cdn-OVH CDN', source: 'cdn-target', sourceUrl: 'https://www.ovhcloud.com/', target: 'OVH CDN', targetHost: 'ovh-cdn.perfops.io', url: 'https://ovh-cdn.perfops.io/500b-bench.jpg', method: 'HTTP GET（响应头信号）', mechKey: 'http-proxy', via: 'main-http', status: 'success', node: 'sbg', cdn: 'OVH CDN', httpStatus: 200, durationMs: 1760 },
+        { id: 'cdn-Zenlayer', source: 'cdn-target', sourceUrl: 'https://zenlayer.com/', target: 'Zenlayer', targetHost: 'test-perfops.ecn.zenlayer.net', url: 'https://test-perfops.ecn.zenlayer.net/500b-bench.jpg', method: 'HTTP GET（响应头信号）', mechKey: 'http-proxy', via: 'main-http', status: 'success', cdn: 'Zenlayer', httpStatus: 200, durationMs: 1008 },
+        { id: 'cdn-jsDelivr', source: 'cdn-target', sourceUrl: 'https://www.jsdelivr.com/', target: 'jsDelivr', targetHost: 'cdn.jsdelivr.net', url: 'https://cdn.jsdelivr.net/npm/latency-test@1.0.0/generate_200', method: 'HTTP GET（响应头信号）', mechKey: 'http-proxy', via: 'main-http', status: 'success', cdn: 'jsDelivr', httpStatus: 200, durationMs: 576 }
       ]
     },
     {
       id: 'dnsExit',
       status: 'partial',
       probes: [
-        { id: 'dns-system-google-authoritative', source: 'google-authoritative', target: '系统默认解析器', targetHost: 'o-o.myaddr.l.google.com', method: 'DNS TXT (UDP 53)', via: 'dns-udp', status: 'success', ip: '198.51.100.10', family: 'ipv4', durationMs: 30, evidence: [{ kind: 'dns', durationMs: 30, snippet: '198.51.100.10', note: '（Demo 样例）诊断 TXT 原文' }] },
-        { id: 'dns-alidns-google-authoritative', source: 'google-authoritative', target: 'AliDNS (223.5.5.5)', targetHost: 'o-o.myaddr.l.google.com', method: 'DNS TXT (UDP 53)', via: 'dns-udp', status: 'success', ip: '198.51.100.11', family: 'ipv4', durationMs: 25 },
-        { id: 'dns-google-google-authoritative', source: 'google-authoritative', target: 'Google DNS (8.8.8.8)', targetHost: 'o-o.myaddr.l.google.com', method: 'DNS TXT (UDP 53)', via: 'dns-udp', status: 'success', ip: '198.51.100.12', family: 'ipv4', durationMs: 90 },
-        { id: 'dns-cloudflare-akamai-authoritative', source: 'akamai-authoritative', target: 'Cloudflare DNS (1.1.1.1)', targetHost: 'whoami.ds.akahelp.net', method: 'DNS TXT (UDP 53)', via: 'dns-udp', status: 'timeout', error: '（Demo 样例）DNS 查询超时（9000ms）', durationMs: 9000 },
-        { id: 'dns-dnspod-akamai-authoritative', source: 'akamai-authoritative', target: 'DNSPod (119.29.29.29)', targetHost: 'whoami.ds.akahelp.net', method: 'DNS TXT (UDP 53)', via: 'dns-udp', status: 'unsupported', error: '（Demo 样例）该网络未提供 IPv6 递归观测条件' }
+        { id: 'dns-system-google-authoritative', source: 'google-authoritative', sourceUrl: 'https://developers.google.com/speed/public-dns/docs/ecs', target: '系统配置解析器', targetHost: 'o-o.myaddr.l.google.com', method: 'DNS TXT（UDP 直连 系统配置解析器）', mechKey: 'dns-udp', via: 'dns-udp', status: 'success', ip: '198.51.100.10', family: 'ipv4', exitSource: 'txt', serverAddr: '223.5.5.5（Demo）', resolverKind: 'system', durationMs: 30, dnsRecords: ['198.51.100.10'], evidence: [{ kind: 'dns', durationMs: 30, snippet: '198.51.100.10', note: '（Demo）TXT 原文' }] },
+        { id: 'dns-system-akamai-authoritative', source: 'akamai-authoritative', sourceUrl: 'https://www.akamai.com/blog/developers/introducing-new-whoami-tool-dns-resolver-information', target: '系统配置解析器', targetHost: 'whoami.ds.akahelp.net', method: 'DNS TXT（UDP 直连 系统配置解析器）', mechKey: 'dns-udp', via: 'dns-udp', status: 'success', ip: '198.51.100.10', family: 'ipv4', exitSource: 'ns', serverAddr: '223.5.5.5（Demo）', resolverKind: 'system', durationMs: 25, dnsRecords: ['ns 198.51.100.10', 'ecs 198.51.100.36/24', 'ip 198.51.100.36'], ecsSubnet: '198.51.100.36/24', ecsRep: '198.51.100.36' },
+        { id: 'dns-alidns-google-authoritative', source: 'google-authoritative', sourceUrl: 'https://developers.google.com/speed/public-dns/docs/ecs', target: 'AliDNS (223.5.5.5)', targetHost: 'o-o.myaddr.l.google.com', method: 'DNS TXT（UDP 直连 223.5.5.5）', mechKey: 'dns-udp', via: 'dns-udp', status: 'success', ip: '198.51.100.10', family: 'ipv4', exitSource: 'txt', serverAddr: '223.5.5.5', resolverKind: 'public', durationMs: 23, dnsRecords: ['198.51.100.10'] },
+        { id: 'dns-dnspod-google-authoritative', source: 'google-authoritative', sourceUrl: 'https://developers.google.com/speed/public-dns/docs/ecs', target: 'DNSPod (119.29.29.29)', targetHost: 'o-o.myaddr.l.google.com', method: 'DNS TXT（UDP 直连 119.29.29.29）', mechKey: 'dns-udp', via: 'dns-udp', status: 'success', dnsRecords: ['edns0-client-subnet 198.51.100.0/24', '·f····203.0.113.25'], ecsSubnet: '198.51.100.0/24', serverAddr: '119.29.29.29', resolverKind: 'public', durationMs: 281, evidence: [{ kind: 'dns', durationMs: 281, snippet: 'edns0-client-subnet 198.51.100.0/24 ·f····203.0.113.25', note: '（Demo）仅取得 ECS 网段，网段内地址被二进制截断 → 不输出猜测的解析器出口' }] },
+        { id: 'dns-114dns-akamai-authoritative', source: 'akamai-authoritative', sourceUrl: 'https://www.akamai.com/blog/developers/introducing-new-whoami-tool-dns-resolver-information', target: '114DNS (114.114.114.114)', targetHost: 'whoami.ds.akahelp.net', method: 'DNS TXT（UDP 直连 114.114.114.114）', mechKey: 'dns-udp', via: 'dns-udp', status: 'success', ip: '2001:db8:8765:4321::1', family: 'ipv6', exitSource: 'ns', serverAddr: '114.114.114.114', resolverKind: 'public', durationMs: 42, dnsRecords: ['ns 2001:db8:8765:4321::1'] },
+        { id: 'dns-google-akamai-authoritative', source: 'akamai-authoritative', sourceUrl: 'https://www.akamai.com/blog/developers/introducing-new-whoami-tool-dns-resolver-information', target: 'Google DNS (8.8.8.8)', targetHost: 'whoami.ds.akahelp.net', method: 'DNS TXT（UDP 直连 8.8.8.8）', mechKey: 'dns-udp', via: 'dns-udp', status: 'success', ip: '192.0.2.25', family: 'ipv4', exitSource: 'ns', serverAddr: '8.8.8.8', resolverKind: 'public', durationMs: 173, dnsRecords: ['ns 192.0.2.25'] },
+        { id: 'dns-cloudflare-akamai-authoritative', source: 'akamai-authoritative', sourceUrl: 'https://www.akamai.com/blog/developers/introducing-new-whoami-tool-dns-resolver-information', target: 'Cloudflare DNS (1.1.1.1)', targetHost: 'whoami.ds.akahelp.net', method: 'DNS TXT（UDP 直连 1.1.1.1）', mechKey: 'dns-udp', via: 'dns-udp', status: 'timeout', error: '（Demo 样例）DNS 查询超时（9000ms）', durationMs: 9000, serverAddr: '1.1.1.1', resolverKind: 'public' },
+        { id: 'dns-cloudflare-google-authoritative', source: 'google-authoritative', sourceUrl: 'https://developers.google.com/speed/public-dns/docs/ecs', target: 'Cloudflare DNS (1.1.1.1)', targetHost: 'o-o.myaddr.l.google.com', method: 'DNS TXT（UDP 直连 1.1.1.1）', mechKey: 'dns-udp', via: 'dns-udp', status: 'success', ip: '192.0.2.11', family: 'ipv4', exitSource: 'txt', serverAddr: '1.1.1.1', resolverKind: 'public', durationMs: 76, dnsRecords: ['192.0.2.11'] }
       ]
     }
   ]
@@ -434,15 +446,18 @@ function demoDiagSummary(run: DiagRun): DiagRunSummary {
       if (p.status === 'success') ok += 1
       sources.add(p.source)
       probes[m.id].push({
-        id: p.id, source: p.source, target: p.target, method: p.method, via: p.via,
-        status: p.status, ip: p.ip, family: p.family, node: p.node, cdn: p.cdn,
-        httpStatus: p.httpStatus, durationMs: p.durationMs, error: p.error
+        id: p.id, source: p.source, sourceUrl: p.sourceUrl, target: p.target, targetHost: p.targetHost,
+        method: p.method, mechKey: p.mechKey, via: p.via, category: p.category,
+        status: p.status, ip: p.ip, family: p.family, geo: p.geo, node: p.node, cdn: p.cdn,
+        cacheSignals: p.cacheSignals, httpStatus: p.httpStatus, durationMs: p.durationMs,
+        dnsRecords: p.dnsRecords, exitSource: p.exitSource, ecsSubnet: p.ecsSubnet, ecsRep: p.ecsRep,
+        serverAddr: p.serverAddr, resolverKind: p.resolverKind, error: p.error, attempts: p.attempts
       })
     }
   }
   return {
     runId: run.runId, startedAt: run.startedAt, finishedAt: run.finishedAt,
-    status: run.status, origin: run.origin,
+    status: run.status, finishedReason: run.finishedReason, origin: run.origin,
     moduleStatus: Object.fromEntries(run.modules.map((m) => [m.id, m.status])),
     probes,
     stats: { sources: sources.size, probes: total, ok }
@@ -450,7 +465,6 @@ function demoDiagSummary(run: DiagRun): DiagRunSummary {
 }
 
 let history: HistoryRecord[] = demoHistory()
-
 let diagRun: DiagRun | null = null
 let diagStopped = false
 
@@ -495,50 +509,71 @@ export function install(): void {
       await sleep(900)
       return { ok: true, results: REACH }
     },
-    // Demo 出口诊断：模拟进度事件流（含一次中途可取消），数据显著标注样例
+    // Demo 出口诊断：立即返回骨架（全部 queued），随后逐项流式更新为新事件形态
     startDiag: async (req: { modules: string[]; origin: string }) => {
-      diagRun = null
       diagStopped = false
+      const full = JSON.parse(JSON.stringify(DEMO_DIAG_RUN)) as DiagRun
+      const mods = full.modules.filter((m) => req.modules.includes(m.id))
       const run: DiagRun = {
-        ...JSON.parse(JSON.stringify(DEMO_DIAG_RUN)),
+        ...full,
         runId: `diag-demo-${Date.now().toString(36)}`,
         startedAt: nowIso(),
-        modules: DEMO_DIAG_RUN.modules.filter((m) => req.modules.includes(m.id))
+        status: 'running',
+        finishedReason: undefined,
+        finishedAt: undefined,
+        modules: mods.map((m) => ({
+          ...m,
+          status: 'running' as const,
+          probes: m.probes.map((p) => ({ ...p, status: 'queued' as const, ip: undefined, node: undefined, error: undefined, durationMs: undefined, httpStatus: undefined }))
+        }))
       }
-      diagRun = { ...run, status: 'running', modules: run.modules.map((m) => ({ ...m, probes: [] })) }
+      diagRun = run
       ;(async () => {
+        const finalById = new Map<string, DiagProbe>()
+        for (const m of full.modules) for (const p of m.probes) finalById.set(p.id, p)
         for (const m of run.modules) {
-          for (const p of m.probes) {
+          for (const skeleton of m.probes) {
             if (diagStopped) return
-            diagRun?.modules.find((x) => x.id === m.id)?.probes.push(p)
-            diagListeners.forEach((l) =>
-              l({ runId: diagRun!.runId, moduleId: m.id, probeId: p.id, status: p.status })
-            )
-            await sleep(240)
+            const final = finalById.get(skeleton.id)
+            const done = final ? { ...final, startedAt: nowIso(), finishedAt: nowIso(), attempts: [{ startedAt: nowIso(), finishedAt: nowIso(), status: final.status, error: final.error }] } : skeleton
+            const idx = m.probes.findIndex((p) => p.id === skeleton.id)
+            m.probes[idx] = done
+            diagListeners.forEach((l) => l({ kind: 'probe', runId: run.runId, moduleId: m.id, probe: done }))
+            await sleep(230)
           }
-          diagListeners.forEach((l) => l({ runId: diagRun!.runId, moduleId: m.id, status: m.status }))
+          if (diagStopped) return
+          m.status = finalById.get(m.probes[0]?.id ?? '') ? (m.probes.some((p) => p.status !== 'success') ? 'partial' : 'success') : 'partial'
+          diagListeners.forEach((l) => l({ kind: 'module', runId: run.runId, moduleId: m.id, status: m.status }))
         }
-        if (diagRun && !diagStopped) {
-          diagRun.status = 'partial'
-          diagRun.finishedAt = nowIso()
-        }
+        if (diagStopped) return
+        diagRun.status = 'partial'
+        diagRun.finishedReason = 'completed'
+        diagRun.finishedAt = nowIso()
+        diagListeners.forEach((l) => l({ kind: 'run', runId: run.runId, status: 'partial', finishedReason: 'completed' }))
       })()
-      return { ok: true, runId: diagRun!.runId }
+      return { ok: true, runId: run.runId, run }
     },
     stopDiag: async () => {
       diagStopped = true
       if (diagRun && diagRun.status === 'running') {
         diagRun.status = 'canceled'
+        diagRun.finishedReason = 'canceled'
         diagRun.finishedAt = nowIso()
-        diagListeners.forEach((l) => l({ runId: diagRun!.runId, moduleId: 'publicIp', status: 'canceled' }))
+        diagListeners.forEach((l) => l({ kind: 'run', runId: diagRun!.runId, status: 'canceled', finishedReason: 'canceled' }))
       }
       return { ok: true }
     },
-    latestDiag: async () => ({
+    latestDiag: async () => ({ ok: true, run: diagRun, summary: diagRun ? demoDiagSummary(diagRun) : null }),
+    getDiag: async (runId: string) => ({
       ok: true,
-      run: diagRun,
-      summary: diagRun ? demoDiagSummary(diagRun) : null
+      run: diagRun && diagRun.runId === runId ? diagRun : null,
+      summary: diagRun && diagRun.runId === runId ? demoDiagSummary(diagRun) : null
     }),
+    retryDiag: async (req: { runId: string; probeIds: string[] }) => {
+      if (!diagRun || diagRun.runId !== req.runId) return { ok: false }
+      void req.probeIds // Demo：单项重试直接沿用主进程事件流模拟（页面仍会轮询校准）
+      return { ok: true }
+    },
     onDiagEvent: (cb: (e: DiagEvent) => void) => {
       diagListeners.add(cb)
       return () => diagListeners.delete(cb)
@@ -549,7 +584,7 @@ export function install(): void {
       return { ok: true, settings }
     },
     resetSettings: async () => ({ ok: true, settings }),
-    appVersion: async () => '0.2.2-demo',
+    appVersion: async () => '0.2.3-demo',
     testAi: async () => {
       await sleep(600)
       return { ok: true, ms: 612, reply: '收到' }
@@ -624,7 +659,7 @@ export function install(): void {
     },
     // Demo 模式无真实更新通道：给出明确状态，不转圈
     checkForUpdates: async () => {
-      updateListeners.forEach((l) => l({ state: 'up-to-date', version: '0.2.2-demo' }))
+      updateListeners.forEach((l) => l({ state: 'up-to-date', version: '0.2.3-demo' }))
       return { ok: true }
     },
     quitAndInstall: async () => ({ ok: true }),

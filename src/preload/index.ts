@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IPInsightAPI } from '@shared/api'
-import type { DiagEvent, DiagRun, DiagRunSummary, DiagStartRequest, DiagStartResponse, DiagStopResponse } from '@shared/diag'
+import type { DiagEvent, DiagRetryRequest, DiagRetryResponse, DiagRun, DiagRunSummary, DiagStartRequest, DiagStartResponse, DiagStopResponse } from '@shared/diag'
 import type {
   AiAnalyzeRequest,
   AiAnalyzeResponse,
@@ -63,6 +63,10 @@ const api: IPInsightAPI = {
     ipcRenderer.invoke('diag:stop', runId),
   latestDiag: (): Promise<{ ok: boolean; run: DiagRun | null; summary: DiagRunSummary | null }> =>
     ipcRenderer.invoke('diag:latest'),
+  getDiag: (runId: string): Promise<{ ok: boolean; run: DiagRun | null; summary: DiagRunSummary | null }> =>
+    ipcRenderer.invoke('diag:get', runId),
+  retryDiag: (req: DiagRetryRequest): Promise<DiagRetryResponse> =>
+    ipcRenderer.invoke('diag:retry', req),
   // 订阅诊断进度事件；返回取消订阅函数
   onDiagEvent: (cb: (e: DiagEvent) => void): (() => void) => {
     const listener = (_event: unknown, e: DiagEvent): void => cb(e)
@@ -84,16 +88,16 @@ const api: IPInsightAPI = {
   analyzeAi: (payload: AiAnalyzeRequest): Promise<AiAnalyzeResponse> =>
     ipcRenderer.invoke('ai:analyze', payload),
 
-  // 订阅 AI 流式输出片段；返回取消订阅函数
-  onAiChunk: (cb: (delta: string) => void): (() => void) => {
-    const listener = (_event: unknown, delta: string): void => cb(delta)
+  // 订阅 AI 流式输出片段（携带请求 ID，绑定发起请求的视图）；返回取消订阅函数
+  onAiChunk: (cb: (e: { reqId?: string; delta: string }) => void): (() => void) => {
+    const listener = (_event: unknown, e: { reqId?: string; delta: string }): void => cb(e)
     ipcRenderer.on('ai:chunk', listener)
     return () => ipcRenderer.removeListener('ai:chunk', listener)
   },
 
-  // 订阅 AI 阶段事件（connected=已连上提供商 / streaming=开始输出）
-  onAiStage: (cb: (stage: string) => void): (() => void) => {
-    const listener = (_event: unknown, stage: string): void => cb(stage)
+  // 订阅 AI 阶段事件（connected=已连上提供商 / streaming=开始输出；携带请求 ID）
+  onAiStage: (cb: (e: { reqId?: string; stage: string }) => void): (() => void) => {
+    const listener = (_event: unknown, e: { reqId?: string; stage: string }): void => cb(e)
     ipcRenderer.on('ai:stage', listener)
     return () => ipcRenderer.removeListener('ai:stage', listener)
   },
@@ -102,9 +106,9 @@ const api: IPInsightAPI = {
   askAi: (payload: AiAskRequest): Promise<AiAnalyzeResponse> =>
     ipcRenderer.invoke('ai:ask', payload),
 
-  // 订阅场景询问的流式输出片段；返回取消订阅函数
-  onAskChunk: (cb: (delta: string) => void): (() => void) => {
-    const listener = (_event: unknown, delta: string): void => cb(delta)
+  // 订阅场景询问的流式输出片段（携带请求 ID）；返回取消订阅函数
+  onAskChunk: (cb: (e: { reqId?: string; delta: string }) => void): (() => void) => {
+    const listener = (_event: unknown, e: { reqId?: string; delta: string }): void => cb(e)
     ipcRenderer.on('ai:askChunk', listener)
     return () => ipcRenderer.removeListener('ai:askChunk', listener)
   },

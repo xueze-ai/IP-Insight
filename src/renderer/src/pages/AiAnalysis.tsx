@@ -1,5 +1,5 @@
 import { Copy, RefreshCw, Settings2, Sparkles } from 'lucide-react'
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { JSX } from 'react'
 import type { AppSettings } from '@shared/types'
 import { AI_PROVIDER_META } from '@shared/aiProviders'
@@ -10,7 +10,7 @@ import { getAsk, subscribeAsk, setAskQuestion, askQuestion } from '../state/askS
 import { requestNav } from '../state/navStore'
 import { aiPayload, diagAiLines } from '../utils/report'
 import { buildConsistencyText, successfulResults } from '../utils/aggregate'
-import { useLang } from '../i18n'
+import { tt, useLang } from '../i18n'
 
 // =============================================================
 // AI 分析页
@@ -73,20 +73,26 @@ export function AiAnalysis(): JSX.Element {
     currentMeta?.defaultModel ||
     ''
 
+  // 纯诊断快照：无多源检测结果但有出口诊断时，仍可生成分析（事实行有界）
+  const diagOnly = !all.length && !!diag
+
   const generate = async (): Promise<void> => {
-    if (!all.length) return
+    if (!all.length && !diagOnly) return
+    // 快照绑定：发起时捕获当前记录；完成后只回写该记录；
+    // 若期间切换了记录，新视图不显示旧报告（避免污染）。
+    const capturedRecordId = lastRecordId
     const res = await startAnalysis(
       aiPayload(all),
-      buildConsistencyText(all),
+      all.length ? buildConsistencyText(all) : '',
       diag ? diagAiLines(diag) : undefined
     )
     if (res.ok && res.text) {
-      setAiReport(res.text)
-      if (lastRecordId) {
+      if (capturedRecordId) {
         void window.ipInsight
-          .updateHistoryAi(lastRecordId, res.text)
+          .updateHistoryAi(capturedRecordId, res.text)
           .catch(() => undefined)
       }
+      if (capturedRecordId === lastRecordIdRef.current) setAiReport(res.text)
     }
   }
 
@@ -94,17 +100,17 @@ export function AiAnalysis(): JSX.Element {
   // 状态在 askStore（模块级）：切页不丢草稿、不中断流式、不丢结果。
   // 同样发送瘦身载荷（aiPayload）与有界诊断事实行。
   const doAsk = (): void => {
-    if (!all.length || ask.phase === 'asking') return
+    if ((!all.length && !diagOnly) || ask.phase === 'asking') return
     void askQuestion(
       aiPayload(all),
-      buildConsistencyText(all),
+      all.length ? buildConsistencyText(all) : '',
       ask.question,
       diag ? diagAiLines(diag) : undefined
     )
   }
 
   /* ---------- 无检测数据 ---------- */
-  if (!all.length) {
+  if (!all.length && !diagOnly) {
     return (
       <div className="page" style={{ paddingTop: 120 }}>
         <h1 className="h1">{t('ai.title')}</h1>
@@ -134,9 +140,11 @@ export function AiAnalysis(): JSX.Element {
         settings.ai.current === 'ollama'
       )
     : null
+  const lastRecordIdRef = useRef<string | null>(lastRecordId)
+  lastRecordIdRef.current = lastRecordId
 
   /* ---------- 未配置 AI ---------- */
-  if (configured === false) {
+  if (configured === false && !diagOnly) {
     return (
       <div className="page" style={{ paddingTop: 120 }}>
         <h1 className="h1">{t('ai.title')}</h1>
@@ -157,7 +165,11 @@ export function AiAnalysis(): JSX.Element {
 
   return (
     <div className="page" style={{ paddingTop: 40 }}>
-      <span className="dash-kicker">{t('ai.kicker', { n: all.length })}</span>
+      <span className="dash-kicker">
+        {all.length
+          ? t('ai.kicker', { n: all.length })
+          : t('diag.save.kindBadge') + ' · ' + (diag ? new Date(diag.startedAt).toLocaleString() : '')}
+      </span>
       <h1 className="h1" style={{ marginTop: 6 }}>{t('ai.title')}</h1>
       <p className="muted small" style={{ marginTop: 8, maxWidth: 640, lineHeight: 1.75 }}>
         {t('ai.desc', {
@@ -173,6 +185,18 @@ export function AiAnalysis(): JSX.Element {
             <span className="mono muted" style={{ fontSize: 11.5 }}>{r.ip}</span>
           </span>
         ))}
+        {diagOnly &&
+          diag &&
+          (Object.keys(diag.moduleStatus) as (keyof typeof diag.moduleStatus)[])
+            .filter((id) => diag.moduleStatus[id] && diag.moduleStatus[id] !== 'pending')
+            .map((id) => (
+              <span className="chip" key={id}>
+                {tt(('diag.module.' + id) as Parameters<typeof tt>[0])}
+                <span className="mono muted" style={{ fontSize: 11.5 }}>
+                  {diag.probes[id]?.filter((p) => p.status === 'success').length ?? 0}/{diag.probes[id]?.length ?? 0}
+                </span>
+              </span>
+            ))}
       </div>
 
       <div style={{ marginTop: 20, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>

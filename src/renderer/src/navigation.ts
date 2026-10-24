@@ -8,7 +8,8 @@ import {
   Network,
   Settings,
   ShieldAlert,
-  Sparkles
+  Sparkles,
+  Waypoints
 } from 'lucide-react'
 import type { TKey } from './i18n'
 
@@ -16,6 +17,7 @@ export type PageId =
   | 'dashboard'
   | 'ipInfo'
   | 'networkQuality'
+  | 'exitDiag'
   | 'risk'
   | 'fingerprint'
   | 'ai'
@@ -34,6 +36,7 @@ export const NAV_MAIN: NavItem[] = [
   { id: 'dashboard', labelKey: 'common.nav.dashboard', icon: LayoutDashboard },
   { id: 'ipInfo', labelKey: 'common.nav.ipInfo', icon: Network },
   { id: 'networkQuality', labelKey: 'common.nav.network', icon: Activity },
+  { id: 'exitDiag', labelKey: 'common.nav.exitDiag', icon: Waypoints },
   { id: 'risk', labelKey: 'common.nav.risk', icon: ShieldAlert },
   { id: 'fingerprint', labelKey: 'common.nav.fingerprint', icon: Fingerprint },
   { id: 'ai', labelKey: 'common.nav.ai', icon: Sparkles },

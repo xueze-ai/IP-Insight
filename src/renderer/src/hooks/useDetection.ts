@@ -9,6 +9,7 @@ import {
   sourceRisks
 } from '../utils/aggregate'
 import { tt } from '../i18n'
+import { enterLive, loadHistoryDiag } from '../state/diagStore'
 
 // =============================================================
 // 多源编排：运行 4 个数据源 + 可选轻量出口诊断（Sukka 模块），
@@ -78,7 +79,9 @@ export function useDetection() {
   const [aiReport, setAiReport] = useState<string | null>(null)
   const [diag, setDiag] = useState<DiagRunSummary | null>(null)
   const [viewSource, setViewSource] = useState<ViewSource>('live')
+  const [detectionId, setDetectionId] = useState<string | null>(null)
   const epochRef = useRef(0)
+  const detectionIdRef = useRef<string | null>(null)
 
   const patch = useCallback(
     (key: string, p: Partial<SourceStep>) =>
@@ -121,10 +124,18 @@ export function useDetection() {
       parallel = false
     }
 
-    // 轻量出口诊断：与多源检测并行启动（失败/取消均不影响主流程）
+    // 轻量出口诊断：与多源检测并行启动（失败/取消均不影响主流程）。
+    // 综合检测 ID 与诊断 runId 显式关联——不靠全局 latest 猜测。
+    const detectionId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+    detectionIdRef.current = detectionId
+    let linkedRunId: string | null = null
+    enterLive()
     if (lightProbe) {
       void api
-        .startDiag({ modules: ['publicIp'], origin: 'dashboard' })
+        .startDiag({ modules: ['publicIp'], origin: 'dashboard', detectionId })
+        .then((r) => {
+          if (r.ok && r.runId) linkedRunId = r.runId
+        })
         .catch(() => null)
     }
 
@@ -160,6 +171,7 @@ export function useDetection() {
     const finishIso = new Date().toISOString()
     setFinishedAt(finishIso)
     setPhase('done')
+    setDetectionId(detectionIdRef.current)
 
     // 主出口：稳定规则（覆盖源最多 → 源顺序），不随返回顺序变化
     const okResults = done
@@ -168,14 +180,16 @@ export function useDetection() {
     const mainIp = pickMainIp(okResults, runnerOrder)
     if (mainIp) setCurrentIp(mainIp)
 
-    // 等待轻量诊断收尾（最多 12s），随后取摘要并入历史
+    // 等待关联 runId 的轻量诊断收尾（最多 15s），随后取摘要并入历史。
+    // 只认启动时拿到的 runId；期间他处启动的新轮不会被误关联。
     let diagSummary: DiagRunSummary | null = null
     if (lightProbe) {
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 15; i++) {
         if (epochRef.current !== epoch) return
         await new Promise((r) => setTimeout(r, 1000))
+        if (!linkedRunId) continue
         try {
-          const lr = await api.latestDiag()
+          const lr = await api.getDiag(linkedRunId)
           const run = lr.run
           if (run && ['success', 'partial', 'failed', 'timeout', 'canceled'].includes(run.status)) {
             diagSummary = lr.summary
@@ -239,6 +253,9 @@ export function useDetection() {
   const loadRecord = useCallback((rec: HistoryRecord) => {
     ++epochRef.current // 旧轮次迟到结果作废
     setViewSource('history')
+    detectionIdRef.current = null
+    // 出口诊断面板同步载入不可变历史快照（后台实时结果不覆盖历史视图）
+    if (rec.diag) loadHistoryDiag(rec.diag, { recordId: rec.id, startedAt: rec.startedAt })
     const loaded: SourceStep[] = rec.sources.map((s) => {
       const result = rec.results.find((r) => r.provider.id === s.key)
       return {
@@ -249,7 +266,8 @@ export function useDetection() {
         result
       }
     })
-    setSteps(loaded.length ? loaded : INITIAL)
+    // 独立出口诊断快照：无多源结果 → 空步骤列表（Dashboard 显示诊断快照视图）
+    setSteps(rec.kind === 'exitDiag' ? [] : loaded.length ? loaded : INITIAL)
     setCurrentIp(rec.currentIp ?? null)
     setStartedAt(rec.startedAt)
     setFinishedAt(rec.finishedAt)
@@ -264,6 +282,9 @@ export function useDetection() {
   const reset = useCallback(() => {
     ++epochRef.current
     setViewSource('live')
+    enterLive()
+    detectionIdRef.current = null
+    setDetectionId(null)
     setPhase('idle')
     setSteps(INITIAL.map((s) => ({ ...s })))
     setCurrentIp(null)
@@ -282,6 +303,7 @@ export function useDetection() {
     diag,
     setDiag,
     viewSource,
+    detectionId,
     run,
     reset,
     startedAt,

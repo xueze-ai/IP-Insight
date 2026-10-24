@@ -1,4 +1,13 @@
-import type { DiagEvent, DiagRun, DiagRunSummary, DiagStartRequest, DiagStartResponse, DiagStopResponse } from './diag'
+import type {
+  DiagEvent,
+  DiagRetryRequest,
+  DiagRetryResponse,
+  DiagRun,
+  DiagRunSummary,
+  DiagStartRequest,
+  DiagStartResponse,
+  DiagStopResponse
+} from './diag'
 import type {
   AiAnalyzeRequest,
   AiAnalyzeResponse,
@@ -41,6 +50,11 @@ export interface IPInsightAPI {
   startDiag: (req: DiagStartRequest) => Promise<DiagStartResponse>
   stopDiag: (runId?: string) => Promise<DiagStopResponse>
   latestDiag: () => Promise<{ ok: boolean; run: DiagRun | null; summary: DiagRunSummary | null }>
+  /** 按 runId 获取指定轮次（综合检测关联等待 / 页面恢复） */
+  getDiag: (runId: string) => Promise<{ ok: boolean; run: DiagRun | null; summary: DiagRunSummary | null }>
+  /** 单项重试（不清空其他结果；保留尝试历史） */
+  retryDiag: (req: DiagRetryRequest) => Promise<DiagRetryResponse>
+  // 订阅诊断进度事件（probe 事件携带完整探测项）；返回取消订阅函数
   onDiagEvent: (cb: (e: DiagEvent) => void) => () => void
 
   // 设置
@@ -52,10 +66,11 @@ export interface IPInsightAPI {
   // AI
   testAi: (providerId: AiProviderId | string) => Promise<AiTestResponse>
   analyzeAi: (payload: AiAnalyzeRequest) => Promise<AiAnalyzeResponse>
-  onAiChunk: (cb: (delta: string) => void) => () => void
-  onAiStage: (cb: (stage: string) => void) => () => void
+  /** 流式片段携带请求 ID：与发起请求绑定，切换视图后旧请求不污染新视图 */
+  onAiChunk: (cb: (e: { reqId?: string; delta: string }) => void) => () => void
+  onAiStage: (cb: (e: { reqId?: string; stage: string }) => void) => () => void
   askAi: (payload: AiAskRequest) => Promise<AiAnalyzeResponse>
-  onAskChunk: (cb: (delta: string) => void) => () => void
+  onAskChunk: (cb: (e: { reqId?: string; delta: string }) => void) => () => void
 
   // 历史
   listHistory: () => Promise<HistoryListResponse>

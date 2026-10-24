@@ -12,7 +12,6 @@ import {
   startSpeedtest,
   subscribeSpeedtest
 } from '../state/speedtestStore'
-import { ExitDiagPanel } from '../components/ExitDiag'
 import { tt, useLang } from '../i18n'
 import type { TKey } from '../i18n'
 
@@ -235,9 +234,8 @@ export function NetworkQuality(): JSX.Element {
           [
             ['network.anchor.speed', 'speed'],
             ['network.anchor.ping', 'ping'],
-            ['network.anchor.svc', 'svc'],
             ['network.anchor.reach', 'reach'],
-            ['diag.title', 'exit-diag']
+            ['network.anchor.svc', 'svc']
           ] as [TKey, string][]
         ).map(([label, anchor]) => (
           <a
@@ -522,10 +520,66 @@ export function NetworkQuality(): JSX.Element {
         )}
       </div>
 
+      {/* ---------- 本机可达性 ---------- */}
+      <div className="card" style={{ marginTop: 28 }} id="reach">
+        <div className="card-head" style={{ marginBottom: 12 }}>
+          <div className="card-eyebrow">{t('network.reach.title')}</div>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => void loadReach()}
+            disabled={reachLoading}
+          >
+            <RefreshCw size={14} className={reachLoading ? 'spin' : undefined} />
+            {reach ? t('network.reach.redetect') : t('network.reach.start')}
+          </button>
+        </div>
+        {reachLoading && !reach && <div className="skeleton" style={{ height: 100 }} />}
+        {reachError && (
+          <p className="small" style={{ color: 'var(--bad)' }}>{reachError}</p>
+        )}
+        {reach && (
+          <div className="kv">
+            {reach.map((r) => (
+              <div className="kv-row" key={r.name}>
+                <div className="kv-key">
+                  {r.name}{' '}
+                  <span className="muted mono" style={{ fontSize: 11.5 }}>{r.host}</span>
+                </div>
+                <div className="kv-val" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {r.ok ? (
+                    <span className="badge badge-good">{t('network.reach.ok', { ms: r.ms ?? '—' })}</span>
+                  ) : (
+                    <>
+                      <span className="badge badge-bad">
+                        {r.ms != null ? t('network.reach.failMs', { ms: r.ms }) : t('network.reach.fail')}
+                      </span>
+                      {r.error && (
+                        <span className="caption mono">{r.error}</span>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {reachAt && (
+          <p className="caption" style={{ marginTop: 8 }}>
+            {t('network.reach.probedAt', { time: new Date(reachAt).toLocaleString() })}
+          </p>
+        )}
+        <p className="caption" style={{ marginTop: 6, lineHeight: 1.7 }}>
+          {t('network.reach.meaning')} {t('network.reach.note')}
+        </p>
+      </div>
+
       {/* ---------- 服务可用性 ---------- */}
       <div className="card" style={{ marginTop: 28 }} id="svc">
         <div className="card-head" style={{ marginBottom: 12 }}>
-          <div className="card-eyebrow">{t('network.svc.title')}</div>
+          <div>
+            <div className="card-eyebrow">{t('network.svc.title')}</div>
+            <p className="caption" style={{ marginTop: 4, lineHeight: 1.7 }}>{t('network.svc.meaning')}</p>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               className="btn btn-ghost btn-sm"
@@ -592,61 +646,6 @@ export function NetworkQuality(): JSX.Element {
         )}
       </div>
 
-      {/* ---------- 本机可达性 ---------- */}
-      <div className="card" style={{ marginTop: 28 }} id="reach">
-        <div className="card-head" style={{ marginBottom: 12 }}>
-          <div className="card-eyebrow">{t('network.reach.title')}</div>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => void loadReach()}
-            disabled={reachLoading}
-          >
-            <RefreshCw size={14} className={reachLoading ? 'spin' : undefined} />
-            {reach ? t('network.reach.redetect') : t('network.reach.start')}
-          </button>
-        </div>
-        {reachLoading && !reach && <div className="skeleton" style={{ height: 100 }} />}
-        {reachError && (
-          <p className="small" style={{ color: 'var(--bad)' }}>{reachError}</p>
-        )}
-        {reach && (
-          <div className="kv">
-            {reach.map((r) => (
-              <div className="kv-row" key={r.name}>
-                <div className="kv-key">
-                  {r.name}{' '}
-                  <span className="muted mono" style={{ fontSize: 11.5 }}>{r.host}</span>
-                </div>
-                <div className="kv-val" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  {r.ok ? (
-                    <span className="badge badge-good">{t('network.reach.ok', { ms: r.ms ?? '—' })}</span>
-                  ) : (
-                    <>
-                      <span className="badge badge-bad">
-                        {r.ms != null ? t('network.reach.failMs', { ms: r.ms }) : t('network.reach.fail')}
-                      </span>
-                      {r.error && (
-                        <span className="caption mono">{r.error}</span>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {reachAt && (
-          <p className="caption" style={{ marginTop: 8 }}>
-            {t('network.reach.probedAt', { time: new Date(reachAt).toLocaleString() })}
-          </p>
-        )}
-        <p className="caption" style={{ marginTop: 6, lineHeight: 1.7 }}>
-          {t('network.reach.note')}
-        </p>
-      </div>
-
-      {/* ---------- 网络出口诊断（本机公网 IP / 网站分流 / CDN 节点 / DNS 出口） ---------- */}
-      <ExitDiagPanel />
     </div>
   )
 }

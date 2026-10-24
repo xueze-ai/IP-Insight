@@ -202,12 +202,22 @@ export function Dashboard(): JSX.Element {
           </span>
         </div>
       )}
-      <div
-        className="mono"
-        style={{ marginTop: 10, fontSize: 28, fontWeight: 600, letterSpacing: '-0.3px' }}
-      >
-        {currentIp ?? '—'}
-      </div>
+      {steps.length === 0 && diag ? (
+        <div className="card card-subtle" style={{ marginTop: 14, padding: '14px 18px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span className="badge badge-info">{t('diag.save.kindBadge')}</span>
+          <span className="small">{t('dashboard.diagOnlyHint')}</span>
+          <button className="btn btn-tonal btn-sm" style={{ marginLeft: 'auto' }} onClick={() => requestNav('exitDiag')}>
+            {t('dashboard.diagMore')}
+          </button>
+        </div>
+      ) : (
+        <div
+          className="mono"
+          style={{ marginTop: 10, fontSize: 28, fontWeight: 600, letterSpacing: '-0.3px' }}
+        >
+          {currentIp ?? '—'}
+        </div>
+      )}
       <div className="muted small" style={{ marginTop: 8 }}>
         {p0?.isp} · {p0?.asn}
       </div>
@@ -239,7 +249,7 @@ export function Dashboard(): JSX.Element {
               href="#network"
               onClick={(e) => {
                 e.preventDefault()
-                requestNav('networkQuality')
+                requestNav('exitDiag')
               }}
             >
               {t('dashboard.diagMore')}

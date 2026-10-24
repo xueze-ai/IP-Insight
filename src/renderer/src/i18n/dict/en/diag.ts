@@ -1,36 +1,51 @@
 export const enDiag = {
   title: 'Network Exit Diagnostics',
   intro:
-    'Observe the egress your machine actually uses from multiple independent vantage points: public IP, website split tunneling, CDN edge node, and DNS query exit. Different exits per target can come from normal split-tunnel rules and is not an anomaly by itself.',
+    'See the egress your machine actually uses per target: public IP, website split tunneling, CDN edge nodes, DNS query exits. Key results are shown directly; technical details and raw evidence are expandable.',
   stop: 'Stop',
-  runAll: 'Run exit diagnostics',
+  runAll: 'Run all',
   rerunAll: 'Re-run all',
-  runningHint: 'Diagnostics in progress (run {id}); a failed probe does not affect others. You can stop anytime.',
+  runningHint: 'Running (run {id}); a failed probe does not affect others. You can stop anytime.',
   runEnd: {
-    canceled: 'Run canceled ({time}); completed probes are kept.',
-    timeout: 'Run timed out ({time}); completed probes are kept.'
+    canceled: 'Run stopped ({time}); completed probes are kept. You can re-run immediately.',
+    timeout: 'Run timed out ({time}); completed probes are kept. You can re-run immediately.'
   },
-  runMeta: 'Run {runId} · started {start} · {stats}',
+  runMeta: 'Run {runId} · started {start}',
+  progress: '{done}/{total} probes done',
+  elapsed: '{s}s elapsed',
   moduleStats: '{ok}/{total} probes OK',
+  runModule: 'Run this module',
+  rerunModule: 'Re-run this module',
   privacyNote: 'Probes are sent directly from your machine and stored locally. Vantage points only see the egress and the diagnostic target; evidence is size-capped and sanitized.',
-  empty: 'This run contains no probes for this module.',
+  empty: 'No diagnostics yet. Click "Run all", or run a single module below.',
+  verifiedAt: 'Target list verified on {date}',
+  historyBanner:
+    'Viewing a history snapshot ({time} · run {runId}), unrelated to the current network. Starting a new run switches back to live view.',
+  overview: {
+    title: 'Run overview',
+    httpExits: '{n} HTTP egress(es) observed',
+    splitGotIp: '{n} sites returned an exit IP',
+    splitReachOnly: '{n} reachable only',
+    failed: '{n} failed',
+    dnsExits: '{n} DNS recursive exits (counted separately)',
+    multiExitNote: 'Multiple exits can come from normal split-tunnel rules — not an anomaly by itself; counts are deduplicated by unique IP.',
+    nothingYet: 'No results yet'
+  },
   module: {
     publicIp: 'Public IP',
     splitTunnel: 'Website split tunneling',
     cdnNode: 'CDN edge node',
     dnsExit: 'DNS exit lookup'
   },
-  note: {
-    publicIp:
-      'Shows the public egress observed by external services — not your LAN adapter address. Different vantage points may see different exits (e.g. split rules or IPv4/IPv6 differences); all are kept. When IPv6 is unavailable it shows "not measured" — never a placeholder.',
-    splitTunnel:
-      'Compare which egress each target sees. Differences can come from normal split-tunnel rules. Only official diagnostic endpoints of each target are tested; the result describes that endpoint only, not the whole website. Targets that do not echo the IP only report reachability.',
-    cdnNode:
-      'Shows which CDN edge node served this request. The node location does not directly represent where you are, and is not the DNS answer, the cache HIT/MISS, or your public IP. Node codes are kept as-is without guessing cities; no HIT/MISS is shown without evidence; latency here is HTTP request time, not ICMP ping.',
-    dnsExit:
-      'Shows the DNS query exit that resolved this test (the address a recursive resolver exposes to authoritative DNS). It is usually NOT your public IP. A DNS exit different from the HTTP exit is common and alone does not indicate a "DNS leak". This test covers the queried resolvers only, not every app or domain.'
+  tabDesc: {
+    publicIp: 'The public egress observed by external services (not your LAN address); IPv4 / IPv6 in separate rows.',
+    splitTunnel: 'Which exit each site sees; differences can come from normal split rules.',
+    cdnNode: 'Which CDN node served this request; node location does not represent where you are.',
+    dnsExit: 'The exit a recursive resolver exposes to authoritative DNS; usually NOT your public IP.'
   },
   status: {
+    queued: 'Queued',
+    running: 'Running',
     success: 'OK',
     partial: 'Partial',
     failed: 'Failed',
@@ -38,53 +53,143 @@ export const enDiag = {
     canceled: 'Canceled',
     skipped: 'Skipped',
     unsupported: 'Unsupported',
-    running: 'Running',
-    pending: 'Pending'
+    pending: 'Not started'
+  },
+  statusLong: {
+    gotExit: 'Exit obtained',
+    reachOnly: 'Reachable, no exit IP provided',
+    gotNode: 'Node obtained',
+    dnsAnswered: 'Answered, no recursive exit',
+    dnsOnlyEcs: 'ECS / TXT only'
   },
   via: {
-    'main-http': 'Main-process network stack (system proxy aware)',
-    'browser-page': 'Hidden browser page context',
-    'dns-udp': 'Direct UDP 53 to the resolver'
+    'main-http': 'Main-process HTTP (system proxy)',
+    'node-direct': 'Node direct (no app-layer proxy)',
+    'dns-udp': 'Local UDP DNS',
+    'browser-page': 'Hidden browser page'
+  },
+  mech: {
+    'http-proxy': 'HTTP request following the system proxy',
+    'node-direct': 'Node https direct (no app-layer proxy)',
+    'dns-udp': 'UDP 53 direct to resolver',
+    'page': 'Page-flow extraction'
+  },
+  mechNote: {
+    'http-proxy': 'Follows the system proxy like the browser; proxies configured only in a browser extension are not on this path.',
+    'node-direct':
+      'Node HTTPS does not use an app-layer proxy, but this does not mean it bypasses all system routing or TUN; it only describes its own path, not others.',
+    'dns-udp': 'udp4 / udp6 chosen by server address.',
+    'page': 'Reuses the page’s own detection flow and reads its displayed results.'
   },
   family: {
     ipv4: 'IPv4',
     ipv6: 'IPv6',
-    unknown: 'Unknown family'
+    unknown: 'Unknown'
   },
-  keyResult: {
-    reachableOnly: 'Reachable (no IP echo)'
+  category: {
+    all: 'All categories',
+    cn: 'CN',
+    intl: 'Intl',
+    ai: 'AI',
+    dev: 'Dev'
   },
-  summary: {
-    publicIp: {
-      multi: 'Vantage points disagree: {ips}',
-      one: 'Public egress: {ips}',
-      none: 'No egress observed this run'
-    },
-    splitTunnel: {
-      exits: '{n} distinct exit(s) observed ({ips}…)',
-      none: 'No target echoed an exit IP'
-    },
-    cdnNode: {
-      hit: '{n} CDN(s) reported a node (e.g. {first})',
-      none: 'No node info obtained'
-    },
-    dnsExit: {
-      exits: '{n} recursive exit(s) observed ({ips}…)',
-      none: 'No recursive exit observed'
-    },
-    partial: '{n} probe(s) failed or timed out'
-  },
-  field: {
-    method: 'Method',
-    time: 'Time & duration',
-    httpStatus: 'HTTP status',
-    family: 'Address family',
-    node: 'Node code (as reported)',
+  col: {
+    site: 'Website / domain',
+    category: 'Category',
+    exit: 'Observed exit IP',
+    geo: 'Country/Region · ISP',
+    status: 'Status',
+    actions: 'Actions',
+    vantage: 'Vantage point',
+    family: 'Family',
+    geoFull: 'Country & network',
+    mech: 'Mechanism',
     cdn: 'CDN',
-    sourceUrl: 'Source reference',
-    error: 'Failure reason'
+    host: 'Test domain',
+    node: 'Raw node ID',
+    cache: 'Cache signals',
+    ms: 'Latency',
+    resolver: 'Resolver',
+    server: 'Server',
+    recExit: 'Recursive exit',
+    ecs: 'ECS subnet'
   },
-  evidence: {
-    toggle: 'Show raw evidence (truncated / sanitized)'
+  geo: {
+    notFetched: 'Not fetched',
+    source: 'Geo source: {source} · {time}',
+    inline: 'Provided by the target'
+  },
+  action: {
+    copyIp: 'Copy IP',
+    copyTable: 'Copy table',
+    copied: 'Copied',
+    retryItem: 'Retry',
+    retryFailed: 'Retry failed',
+    detail: 'Details'
+  },
+  search: 'Search website or domain…',
+  filter: {
+    failOnly: 'Failures / no IP only',
+    groupByExit: 'Group by exit',
+    exitGroup: 'Exit {label} ({n} targets)',
+    exitLabelA: 'A',
+    exitLabelB: 'B',
+    exitLabelC: 'C',
+    exitLabelD: 'D',
+    exitLabelE: 'E',
+    reachOnlyGroup: 'No exit obtained ({n} targets)'
+  },
+  reachOnlyText: 'Reachable, no exit IP provided.',
+  noNode: 'No node info provided',
+  noCache: 'No cache signals provided',
+  cacheOrderNote: 'Cache signals are kept in response order (segments not merged).',
+  cdnNote: 'Node IDs are raw values (not truncated); a CDN node location is not the exit IP’s city; HTTP latency is not ICMP ping.',
+  dns: {
+    groupSystem: 'System-configured resolver',
+    groupPublic: 'Specified public DNS (direct UDP)',
+    publicNote:
+      'Results for specified public DNS show the recursive exit when querying that server — they do not represent the browser’s actual DNS. This test cannot fully cover browser secure DNS (DoH), in-app DoH, proxy-side remote resolution, or all system split-DNS rules.',
+    dnsLeakNote: 'A DNS exit differing from the HTTP exit is common and alone does not indicate a “DNS leak”.',
+    exitSource: 'Exit semantics: {v}',
+    exitSourceNs: 'ns segment (Akamai official: recursive resolver exit)',
+    exitSourceTxt: 'bare-IP TXT record (Google official: recursive resolver exit)',
+    noExit: 'Not obtained',
+    ecsRepLabel: 'ECS representative address (not the resolver exit)',
+    recordsLabel: 'Answer TXT records ({n})'
+  },
+  detail: {
+    url: 'Request URL',
+    method: 'Method',
+    mech: 'Mechanism',
+    family: 'Family',
+    http: 'HTTP status',
+    ms: 'Latency',
+    time: 'Measured at',
+    source: 'Data source',
+    sourceUrl: 'Source reference',
+    records: 'TXT records',
+    attempts: 'Attempt history',
+    firstAt: 'First: {time}',
+    retriedAt: 'Attempt #{n}: {time} · {status}',
+    evidence: 'Raw evidence (truncated / sanitized)',
+    historyNoEvidence: 'History snapshots do not include raw evidence.'
+  },
+  save: {
+    toHistory: 'Save to history',
+    saved: 'Saved',
+    kindBadge: 'Exit-diagnostics snapshot',
+    savedHint: 'Saved as a standalone history record — view, export, or send to AI from the History page.'
+  },
+  compare: {
+    title: 'Snapshot compare',
+    desc: 'Compare two runs by the same target, family and mechanism: exit, node and status.',
+    pick: 'Pick a snapshot',
+    run: 'Compare',
+    a: 'Current',
+    b: 'History {time}',
+    changed: 'Exit changed',
+    same: 'Same',
+    missing: 'Missing (not counted as a change)',
+    noPairs: 'No common targets between the two snapshots.'
   }
 }

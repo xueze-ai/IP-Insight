@@ -1420,7 +1420,7 @@ button {
 }
 
 /* =============================================================
-   网络出口诊断（ExitDiag / 0.2.2）
+   网络出口诊断（独立页面 / 0.2.3）
    ============================================================= */
 .diag-anchor {
   color: var(--primary);
@@ -1428,133 +1428,107 @@ button {
   font-size: 12.5px;
   padding: 3px 8px;
   border-radius: 8px;
-  background: var(--surface-2, transparent);
   transition: background var(--dur-fast) var(--ease);
 }
-.diag-anchor:hover {
-  background: rgba(26, 115, 232, 0.08);
-  text-decoration: none;
-}
-.diag-anchor-bar .diag-anchor {
-  border: 1px solid var(--border);
-}
+.diag-anchor:hover { background: rgba(26, 115, 232, 0.08); }
+.diag-anchor-bar .diag-anchor { border: 1px solid var(--border); }
 
-.diag-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+/* 概览 */
+.diag-overview {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--bg-subtle, rgba(127,127,127,0.04));
 }
-@media (max-width: 980px) {
-  .diag-grid {
-    grid-template-columns: 1fr;
-  }
-}
-.diag-mod-card {
-  padding: 0;
-  overflow: hidden;
-}
-.diag-mod-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 13px 16px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-}
-.diag-mod-head:hover {
-  background: rgba(127, 127, 127, 0.05);
-}
-.diag-mod-title {
-  font-weight: 600;
-  font-size: 13.5px;
-}
-.diag-mod-head .caption {
-  margin-left: auto;
-}
-.diag-mod-head > svg:last-child {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-.diag-mod-summary {
-  padding: 0 16px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  color: var(--text-2);
-}
-.diag-mod-body {
-  padding: 0 16px 14px;
-  border-top: 1px dashed var(--border);
-}
+.diag-ov-item { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-.diag-probe {
-  border-bottom: 1px solid var(--border);
+/* 标签栏 */
+.diag-tabs { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+.diag-tab {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 14px; border: none; border-bottom: 2px solid transparent;
+  background: transparent; cursor: pointer; font: inherit; color: var(--text-2);
+  border-radius: 8px 8px 0 0; position: relative;
 }
-.diag-probe:last-child {
-  border-bottom: none;
+.diag-tab:hover { background: rgba(127,127,127,0.06); color: var(--text-1); }
+.diag-tab.active { color: var(--primary); font-weight: 600; border-bottom-color: var(--primary); }
+.diag-tab-count { font-size: 11px; padding: 1px 6px; border-radius: 99px; }
+.diag-tab-count.badge-good { background: rgba(24,128,56,0.12); color: var(--good); }
+.diag-tab-count.badge-warn { background: rgba(249,171,0,0.15); color: var(--warn); }
+.diag-tab-count.badge-bad { background: rgba(197,34,31,0.12); color: var(--bad); }
+.diag-tab-count.badge-neutral { background: rgba(127,127,127,0.12); color: var(--text-muted); }
+.diag-tab-run { display: inline-flex; padding: 2px; border-radius: 6px; color: var(--text-muted); }
+.diag-tab-run:hover { background: rgba(26,115,232,0.1); color: var(--primary); }
+
+/* 工具栏 */
+.diag-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.input-wrap { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 8px; padding: 0 8px; background: var(--bg-subtle, transparent); }
+.input-wrap .input { border: none; background: transparent; box-shadow: none; }
+.input-sm { height: 30px; font-size: 12.5px; width: 190px; }
+.chk { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; user-select: none; }
+
+/* 表格 */
+.diag-table-wrap { border: 1px solid var(--border); border-radius: 12px; }
+.diag-table { display: grid; min-width: 720px; font-size: 12.8px; }
+.diag-th {
+  padding: 9px 12px; color: var(--text-muted); font-weight: 600; font-size: 11.5px;
+  border-bottom: 1px solid var(--border); position: sticky; top: 0;
+  background: var(--bg-subtle, rgba(127,127,127,0.05)); white-space: nowrap;
 }
-.diag-probe-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 0;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  color: inherit;
+.diag-th.right, .diag-td.right { text-align: right; }
+.diag-tr-group { display: contents; }
+.diag-tr {
+  display: grid; grid-column: 1 / -1; align-items: center;
+  grid-template-columns: inherit; padding: 0; cursor: pointer;
+  border-bottom: 1px solid var(--border); transition: background var(--dur-fast) var(--ease);
 }
-.diag-probe-main:hover .diag-probe-target {
-  color: var(--primary);
+.diag-table > .diag-tr { grid-template-columns: inherit; }
+/* 行内网格对齐表头：直接让 .diag-tr 使用与容器相同的列定义 */
+.diag-tr:hover { background: rgba(127,127,127,0.05); }
+.diag-tr.open { background: rgba(26,115,232,0.05); }
+.diag-td { padding: 8px 12px; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.diag-tr-detail { grid-column: 1 / -1; padding: 4px 14px 12px; border-bottom: 1px solid var(--border); background: var(--bg-subtle, rgba(127,127,127,0.03)); }
+.diag-detail .kv-row { padding: 3px 0; }
+
+/* 站点单元格 */
+.diag-cat-dot { width: 8px; height: 8px; border-radius: 99px; flex-shrink: 0; }
+.diag-cat-dot[data-cat='cn'] { background: #e5484d; }
+.diag-cat-dot[data-cat='intl'] { background: #1a73e8; }
+.diag-cat-dot[data-cat='ai'] { background: #8e4ec6; }
+.diag-cat-dot[data-cat='dev'] { background: #2f9e44; }
+.diag-site { display: flex; flex-direction: column; min-width: 0; }
+.diag-site-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.diag-site-host { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* IP 单元格 */
+.diag-ip-cell { min-width: 0; }
+.diag-ip { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diag-family-tag { font-size: 10px; color: var(--text-muted); border: 1px solid var(--border); border-radius: 5px; padding: 0 4px; flex-shrink: 0; }
+.diag-actions { justify-content: flex-end; gap: 2px; }
+.diag-actions .btn-icon { width: 26px; height: 26px; }
+
+/* 出口分组视图 */
+.diag-tgroup { display: contents; }
+.diag-tgroup-head {
+  display: flex; gap: 10px; align-items: baseline; padding: 7px 12px; grid-column: 1 / -1;
+  background: var(--bg-subtle, rgba(127,127,127,0.06)); font-size: 12px; border-bottom: 1px solid var(--border);
 }
-.diag-probe-target {
-  min-width: 130px;
-  max-width: 190px;
-  font-size: 12.8px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.diag-probe-key {
-  flex: 1;
-  font-size: 12.5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.diag-probe-src {
-  font-size: 11px;
-  flex-shrink: 0;
-}
-.diag-probe-detail {
-  padding: 2px 0 12px 8px;
-}
-.diag-evidence {
-  margin-top: 8px;
-}
-.diag-evidence summary {
-  cursor: pointer;
-  color: var(--text-muted);
-  user-select: none;
-}
+.diag-tgroup-head .mono { font-size: 12px; color: var(--text-1); word-break: break-all; }
+.diag-subhead { margin: 14px 0 8px; font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+
+/* 证据 */
+.diag-evidence { margin-top: 8px; }
+.diag-evidence summary { cursor: pointer; color: var(--text-muted); user-select: none; }
 .diag-evidence-pre {
-  margin: 8px 0 0;
-  padding: 10px 12px;
-  background: var(--bg-subtle, rgba(127, 127, 127, 0.06));
-  border-radius: 8px;
-  font-size: 11.5px;
-  line-height: 1.65;
-  max-height: 220px;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: var(--text-2);
+  margin: 8px 0 0; padding: 10px 12px; background: rgba(127,127,127,0.07); border-radius: 8px;
+  font-size: 11.5px; line-height: 1.65; max-height: 220px; overflow: auto;
+  white-space: pre-wrap; word-break: break-word; color: var(--text-2);
+}
+
+@media (max-width: 980px) {
+  .diag-table { min-width: 640px; }
+}
+
+.diag-ov-title {
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+  letter-spacing: 0.2px; margin-bottom: 4px;
 }

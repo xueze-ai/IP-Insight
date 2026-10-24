@@ -86,7 +86,8 @@ export const enNetwork: typeof zhNetwork = {
     incidentsTitle: 'Current incidents on degraded services',
     incidentLine: '· {name}: {incident}',
     incidentStatus: '({status})',
-    unknown: 'Unknown'
+    unknown: 'Unknown',
+    meaning: 'Service status: public information from each service’s official status page (no probing of the service itself); an “all normal” status likewise does not mean your account, region, or entitlements are enabled.'
   },
   reach: {
     title: 'Local reachability · real HTTP probes',
@@ -97,6 +98,7 @@ export const enNetwork: typeof zhNetwork = {
     fail: 'Unreachable',
     failMs: 'Unreachable · {ms} ms',
     probedAt: 'Probed at: {time}',
+    meaning: 'Reachability: tests whether your machine receives a response from the target; a response does not mean your account, region, entitlements, or the whole service are available.',
     note: 'Probes run inside a hidden browser page (same network stack and request headers as a real browser, honoring the system proxy). Any response counts as reachable; network-level failure (still failing after 1 retry) or an 8s timeout counts as unreachable with the real error shown. If your proxy is only set in a browser extension rather than the system proxy, these probes do not go through it. Results reflect the moment of probing only.'
   }
 }

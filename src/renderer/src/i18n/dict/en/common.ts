@@ -5,6 +5,7 @@ export const enCommon: typeof zhCommon = {
     dashboard: 'Overview',
     ipInfo: 'IP Info',
     network: 'Network',
+    exitDiag: 'Exit Diagnostics',
     risk: 'Risk Analysis',
     fingerprint: 'Fingerprint',
     ai: 'AI Analysis',
