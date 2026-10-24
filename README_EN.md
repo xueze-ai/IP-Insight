@@ -9,7 +9,7 @@
 [简体中文](README.md) · [English](README_EN.md)
 
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-0.1.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.2.2-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey.svg)
 ![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)
 
@@ -44,12 +44,13 @@ It ships **no IP / threat-intel / GeoIP databases** — every conclusion comes f
 ### Highlights
 
 - 🌐 **Four sources**: Ping0, Net.Coffee, Net.Coffee GPT, IPPure — one failing source never blocks the others
+- 🚦 **Network exit diagnostics (new in 0.2.2)**: multi-vantage-point public IP, website split-tunnel testing, CDN edge nodes, DNS exit lookup — four summary cards with expandable details and raw evidence (see [docs/exit-diagnostics-data-sources.md](docs/exit-diagnostics-data-sources.md))
 - 🔎 **Cross-validation**: agreements marked ✓, conflicts marked ⚠ with per-source values; **no forced single verdict**
-- 🧠 **AI analysis**: Qwen / DeepSeek / Doubao / OpenAI / **local Ollama** / Zhipu / Moonshot / SiliconFlow / custom — streaming output with automatic continuation on truncation
+- 🧠 **AI analysis**: Qwen / DeepSeek / Doubao / OpenAI / **local Ollama** / Zhipu / Moonshot / SiliconFlow / custom — streaming output with automatic continuation on truncation; reports organized as "confirmed / worth attention / cannot confirm / next steps"
 - ⚡ **Local measurements**: Cloudflare official speedtest engine, 20-node global ping, 31-service availability feed, 10-site reachability probes (real browser network stack)
 - 🖐 **Browser fingerprint**: Canvas / WebGL / Audio / Fonts / composite ID + timezone consistency + DNS & WebRTC leak checks
-- 🗂 **History & reports**: day-grouped history, reload-into-analysis, export to HTML / PDF / JSON / TXT
-- 🎨 **Material 3 desktop UI**: light / dark / follow-system themes (Chinese UI; English docs)
+- 🗂 **History & reports**: day-grouped history (failed & partial sources kept), reload-into-analysis, export to HTML / PDF / JSON / TXT — exit diagnostics travel with the snapshot
+- 🎨 **Material 3 desktop UI**: light / dark / follow-system themes; Chinese & English; plain-language explanations for every technical term
 - 🧪 **Demo mode**: preview the entire UI in a plain browser with sample data
 
 ## How it works
@@ -191,6 +192,26 @@ Be kind, stay on topic, and respect the detection sites' robots & terms of servi
 [MIT License](LICENSE): free to use, modify, distribute and sell — **the only condition is keeping the copyright notice (Copyright © 2026 Xue Ze)**. When redistributing, also keep the author & repository information shown in the app's About page.
 
 ## Changelog
+
+### 0.2.2
+- **Network exit diagnostics** (new group on the Network Quality page; four summary cards + expandable details + run-all / stop):
+  - Public IP: multi-vantage-point Cloudflare traces + the ip.skk.moe page flow (challenge pages are reported honestly, never bypassed)
+  - Split tunneling: official diagnostic endpoints of ChatGPT / Claude / OpenAI API / Discord / GitLab etc. echo the exit; CN targets report reachability only (no fabricated exits)
+  - CDN edge nodes: 11 public endpoints (Cloudflare / Fastly / CloudFront / Bunny / CDN77 / CacheFly / OVH …); node codes kept verbatim, no city guessing, no HIT/MISS without evidence
+  - DNS exit lookup: local UDP queries to 6 resolvers × Google / Akamai official diagnostic TXT zones; multiple recursive exits kept; a DNS exit differing from the HTTP exit is never called a leak
+  - Full detection attaches a light public-egress probe (toggle in Settings); runId isolation keeps stop / re-run / history loads from polluting each other
+- **Plain-language layer**: three-tier presentation (key result → plain explanation → expandable evidence); "What do these fields mean?" on the dashboard; source-attribution wording ("flagged by source(s)") instead of "you are using X"
+- **Verdict fixes**: "no leak detected" no longer rendered red (structured verdict, backward compatible); untested / canceled / unsupported render neutral; primary egress chosen deterministically (most-covering IP → source order); the hardcoded "4 sources" counts are now dynamic
+- **History & export**: failed and partial sources are kept in history; exit diagnostics saved with the snapshot; older records show "no exit diagnostics"; all four export formats include the diagnostics summary and probe table (long IPv6 does not overflow in PDF); AI receives bounded diagnostics fact lines with prompt constraints (split differences / DNS exit differences are not anomalies; a reachable endpoint ≠ an unlocked service)
+- Demo covers normal / multi-exit / IPv6-missing / partial-failure shapes; real failures never fall back to the demo
+- New [docs/exit-diagnostics-data-sources.md](docs/exit-diagnostics-data-sources.md) (endpoints, methods, field semantics, verification dates, known limitations); privacy policy updated
+
+### 0.2.1
+- English UI (Settings → Appearance → Language); AI analysis, scenario Q&A and exports follow the UI language
+- AI scenario Q&A ("can this IP watch Netflix / game / run e-commerce?")
+
+### 0.2.0
+- Auto-update via GitHub Releases; SHA256SUMS.txt with release artifacts; PRIVACY.md, code-signing docs, WinGet manifests
 
 ### 0.1.0 (2026-10-05)
 First full release: four source Adapters + unified model, cross-source analysis, nine-page Material 3 UI, local speedtest / global nodes / service availability / reachability, five-group browser fingerprint, streaming AI analysis (9 providers + custom + Ollama), persisted settings, history, four-format report export, NSIS installer & portable zip, browser Demo preview mode.

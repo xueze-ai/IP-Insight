@@ -9,6 +9,7 @@ import { zhAi } from './dict/zh/ai'
 import { zhHistory } from './dict/zh/history'
 import { zhComponents } from './dict/zh/components'
 import { zhMisc } from './dict/zh/misc'
+import { zhDiag } from './dict/zh/diag'
 import type { LeafKeys } from './types'
 
 // 中文字典为唯一事实来源：en.ts 用 `en: Dict` 约束，缺 key 编译报错。
@@ -23,7 +24,8 @@ export const zh = {
   ai: zhAi,
   history: zhHistory,
   components: zhComponents,
-  misc: zhMisc
+  misc: zhMisc,
+  diag: zhDiag
 } as const
 
 export type Dict = typeof zh

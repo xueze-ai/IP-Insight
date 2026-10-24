@@ -8,7 +8,7 @@ import { useDetectionContext } from '../state/DetectionContext'
 import { getAi, startAnalysis, subscribeAi } from '../state/aiStore'
 import { getAsk, subscribeAsk, setAskQuestion, askQuestion } from '../state/askStore'
 import { requestNav } from '../state/navStore'
-import { aiPayload, } from '../utils/report'
+import { aiPayload, diagAiLines } from '../utils/report'
 import { buildConsistencyText, successfulResults } from '../utils/aggregate'
 import { useLang } from '../i18n'
 
@@ -16,10 +16,12 @@ import { useLang } from '../i18n'
 // AI 分析页
 // 把全部标准化检测数据 + 程序交叉汇总交给用户配置的模型（设置页写入），
 // 流式渲染分析报告。分析状态在模块级 store 中：切换页面不丢、不重跑。
+// 发送给模型的数据是瘦身后的有界摘要（aiPayload + 出口诊断事实行），
+// 不包含整页文本、原始响应全文或日志。
 // =============================================================
 
 export function AiAnalysis(): JSX.Element {
-  const { steps, run, lastRecordId, setAiReport } = useDetectionContext()
+  const { steps, run, lastRecordId, setAiReport, diag } = useDetectionContext()
   const ai = useSyncExternalStore(subscribeAi, getAi)
   // 场景咨询状态在模块级 store：输入草稿 / 流式回答 / 错误切页不丢
   const ask = useSyncExternalStore(subscribeAsk, getAsk)
@@ -73,7 +75,11 @@ export function AiAnalysis(): JSX.Element {
 
   const generate = async (): Promise<void> => {
     if (!all.length) return
-    const res = await startAnalysis(aiPayload(all), buildConsistencyText(all))
+    const res = await startAnalysis(
+      aiPayload(all),
+      buildConsistencyText(all),
+      diag ? diagAiLines(diag) : undefined
+    )
     if (res.ok && res.text) {
       setAiReport(res.text)
       if (lastRecordId) {
@@ -86,9 +92,15 @@ export function AiAnalysis(): JSX.Element {
 
   // 场景咨询：问「这个 IP 适不适合某用途」，流式回答结论 + 依据 + 换节点建议。
   // 状态在 askStore（模块级）：切页不丢草稿、不中断流式、不丢结果。
+  // 同样发送瘦身载荷（aiPayload）与有界诊断事实行。
   const doAsk = (): void => {
     if (!all.length || ask.phase === 'asking') return
-    void askQuestion(all, buildConsistencyText(all), ask.question)
+    void askQuestion(
+      aiPayload(all),
+      buildConsistencyText(all),
+      ask.question,
+      diag ? diagAiLines(diag) : undefined
+    )
   }
 
   /* ---------- 无检测数据 ---------- */

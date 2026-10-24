@@ -56,7 +56,8 @@ export function setAskQuestion(q: string): void {
 export function askQuestion(
   results: Parameters<typeof window.ipInsight.askAi>[0]['results'],
   consistency: string,
-  question: string
+  question: string,
+  diagLines?: string[]
 ): Promise<AiAnalyzeResponse> {
   const q = question.trim()
   if (!q) return Promise.resolve({ ok: false, error: '' })
@@ -74,7 +75,7 @@ export function askQuestion(
     set({ answer: state.answer + d })
   })
   return window.ipInsight
-    .askAi({ results, question: q, consistency })
+    .askAi({ results, question: q, consistency, diagLines })
     .then((res: AiAnalyzeResponse) => {
       asking = false
       off()

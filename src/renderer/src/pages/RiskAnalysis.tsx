@@ -9,6 +9,8 @@ import {
   aggregateField,
   exitGroups,
   flagConsensus,
+  leakBadgeCls,
+  leakBadgeState,
   levelOf,
   median,
   sourceRisks,
@@ -238,6 +240,12 @@ export function RiskAnalysis(): JSX.Element {
     | undefined
 
   const gptOthers = others.filter((g) => g.rs.some((r) => r.provider.id === 'netcoffee_gpt'))
+  const gpt = rs.find((r) => r.provider.id === 'netcoffee_gpt')
+  const gptLeak = (info?: { verdict?: string; status?: string }): JSX.Element => (
+    <span className={'badge ' + leakBadgeCls(leakBadgeState(info))}>
+      {info?.status ?? tt('risk.nodata')}
+    </span>
+  )
 
   return (
     <div className="page" style={{ paddingTop: 40 }}>
@@ -291,6 +299,7 @@ export function RiskAnalysis(): JSX.Element {
           ))}
         </div>
         <p className="caption" style={{ marginTop: 12, lineHeight: 1.7 }}>
+          {t('risk.level.computedNote')}
           {t('risk.level.scales', {
             list: srcRisks
               .map((s) =>
@@ -396,6 +405,28 @@ export function RiskAnalysis(): JSX.Element {
           name={t('risk.ti.fraud')}
           badge={<span className="badge badge-neutral">{t('risk.nodata')}</span>}
           desc={t('risk.ti.fraudDesc')}
+        />
+        <ItemRow
+          name={t('risk.leak.dns')}
+          badge={gptLeak(
+            gpt?.dnsLeak ? { verdict: gpt.dnsLeak.verdict, status: gpt.dnsLeak.status } : undefined
+          )}
+          desc={
+            gpt?.dnsLeak?.status
+              ? tt('risk.leak.dnsDesc', { status: gpt.dnsLeak.status })
+              : t('risk.nodata')
+          }
+        />
+        <ItemRow
+          name={t('risk.leak.webrtc')}
+          badge={gptLeak(
+            gpt?.webRTCLeak ? { verdict: gpt.webRTCLeak.verdict, status: gpt.webRTCLeak.status } : undefined
+          )}
+          desc={
+            gpt?.webRTCLeak?.status
+              ? tt('risk.leak.webrtcDesc', { status: gpt.webRTCLeak.status })
+              : t('risk.nodata')
+          }
         />
         <ItemRow
           name={t('risk.ti.threats')}

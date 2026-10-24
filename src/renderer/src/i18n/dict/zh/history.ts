@@ -2,7 +2,7 @@ export const zhHistory = {
   kicker: 'History · 本地保存',
   clearAll: '清空全部',
   confirmClear: '确定清空全部历史记录？该操作不可撤销。',
-  desc: '每次综合检测完成后自动保存在本机（时间 / IP / 数据源 / 完整结果），保留天数与开关在「设置 → 数据与隐私」中配置。',
+  desc: '每次综合检测完成后自动保存在本机（时间 / IP / 数据源 / 完整结果，含失败与部分成功来源），保留天数与开关在「设置 → 数据与隐私」中配置。',
   disabled: '历史记录已关闭',
   disabledDesc: '新的检测将不再写入历史；以下为关闭前保存的记录。',
   goEnable: '去设置开启',
@@ -17,7 +17,13 @@ export const zhHistory = {
   fail: '失败',
   detectTime: '检测时间：',
   riskValue: ' · 归一风险值 {v}/100',
+  diagTitle: '该记录包含结构化出口诊断数据',
+  diagYes: '含出口诊断',
+  diagNo: '此记录未包含出口诊断（旧版本记录，不做补测）',
+  diagStats: '出口诊断 {ok}/{total} 项成功 · {sources} 个来源',
   loadPage: '载入分析页',
   exportReport: '导出报告',
-  confirmDelete: '删除这条历史记录？'
+  confirmDelete: '删除这条历史记录？',
+  viewSourceLive: '当前查看：本次实时检测结果',
+  viewSourceHistory: '当前查看：历史记录（{time}）·与当前网络无关'
 }

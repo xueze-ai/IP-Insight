@@ -13,8 +13,16 @@ export const zhRisk = {
     score: '归一风险值 {v} / 100',
     scaleItem: '{name}：{raw}（{scale}）',
     scales: '{list}。',
+    computedNote:
+      '说明：综合等级是本程序把各源不同量表的分数归一后取中位数的计算值，仅用于快速比较；它不是任何风险机构实际测得的评分。',
     conflictNote:
       ' 各源风险等级存在分歧（口径与数值差异见上），综合等级取中位数，非确定结论。'
+  },
+  leak: {
+    dns: 'DNS 请求出口一致性',
+    webrtc: 'WebRTC 请求出口一致性',
+    dnsDesc: '检测源报告状态：{status}。判定含义见括号内原文；「不一致」可能来自正常分流配置，也可能暴露真实网络位置，仅以检测源报告为准。',
+    webrtcDesc: '检测源报告状态：{status}。判定含义见括号内原文；本项由 STUN 探测观察，仅代表该探测路径。'
   },
   gpt: {
     badge: 'ChatGPT 分流出口',
@@ -62,7 +70,7 @@ export const zhRisk = {
     spamDescHit: '命中 Spam 类列表：{engines}（返回码 {codes}）。',
     spamDescClear: '未命中任何 Spam 类 DNSBL 列表。',
     fraudDesc:
-      '当前四个数据源均未提供欺诈（Fraud）标签项；暂留空，后续接入提供该字段的数据源后自动显示。',
+      '当前接入的数据源均未提供欺诈（Fraud）标签项；如实显示「无数据」，不猜测、不补造。',
     threatsHit: '{n} 个威胁标签',
     threatsClear: '无威胁标签',
     threatsDescHit: 'Net.Coffee 情报库标记：{tags}（单源）。',

@@ -4,6 +4,8 @@
 //      拿不到就保持 undefined / null，禁止任何形式的伪造或随机填充。
 // =============================================================
 
+import type { DiagRunSummary } from './diag'
+
 export type ProviderId =
   | 'ping0'
   | 'netcoffee'
@@ -45,8 +47,13 @@ export interface BlacklistEntry {
   status?: string
 }
 
+/** 结构化泄露判定：显示层按 verdict 决定颜色，不再用字符串包含匹配 */
+export type LeakVerdict = 'leak' | 'clean' | 'untested' | 'unknown'
+
 export interface LeakInfo {
-  status: string // 例如：可能泄露 / 未泄露 / 未检测 / 未知
+  status: string // 来源原始状态文案（保留原文）
+  /** 程序归一判定：leak=有证据的泄露 clean=明确未泄露 untested=未测试 unknown=无法判断 */
+  verdict?: LeakVerdict
   exitIp?: string
   provider?: string
   detail?: string
@@ -266,6 +273,8 @@ export interface AppSettings {
     timeoutSec: number
     autoRunOnStart: boolean
     parallel: boolean
+    /** 综合检测附带轻量 Sukka 公网出口查询（默认开） */
+    lightExitProbe: boolean
   }
   privacy: {
     historyEnabled: boolean
@@ -309,6 +318,9 @@ export interface AiTestResponse {
 export interface AiAnalyzeRequest {
   results: NormalizedIPResult[]
   consistency: string
+  /** 0.2.2 起附带的结构化出口诊断摘要（有界事实行，非原始日志） */
+  diagLines?: string[]
+  diagStatus?: string
 }
 
 export interface AiAnalyzeResponse {
@@ -326,6 +338,7 @@ export interface AiAskRequest {
   results: NormalizedIPResult[]
   question: string
   consistency?: string
+  diagLines?: string[]
 }
 
 // ------------ 历史记录（userData/history.json） ------------
@@ -347,8 +360,12 @@ export interface HistoryRecord {
   riskLevel?: string | null // 归一风险等级快照（低风险/中风险/高风险/严重）
   riskValue?: number | null
   netType?: string | null // 住宅 / 数据中心 / 托管
+  /** 全部来源（含失败/部分成功），0.2.1 旧记录可能只有成功来源 */
   sources: HistorySourceSummary[]
+  /** 0.2.2 起保留全部结果（含失败）；旧记录历史上只存成功来源 */
   results: NormalizedIPResult[]
+  /** 0.2.2 起附带的结构化出口诊断（可能不完整：只含已启动的模块） */
+  diag?: DiagRunSummary
   aiReport?: string
 }
 
@@ -405,6 +422,33 @@ export interface ReportModel {
   consistency: string // 多源对比文本
   fields: { label: string; value: string }[] // 聚合关键字段
   raw: { source: string; raw: unknown }[] // 各源原始结果（仅 JSON 导出使用）
+  /** 0.2.2 起附带的出口诊断（易读摘要 + 明细），无则为空 */
+  diag?: {
+    runId: string
+    startedAt: string
+    finishedAt?: string
+    status: string
+    // 每模块人类可读摘要行（键-值对，渲染层已本地化）
+    modules: {
+      id: string
+      status: string
+      rows: { label: string; value: string }[]
+    }[]
+    // 探测项明细表（模块 / 目标 / 来源 / 方式 / 出口IP / 节点 / 状态 / 耗时 / 错误）
+    probes: {
+      module: string
+      target?: string
+      source: string
+      method: string
+      via: string
+      status: string
+      ip?: string
+      node?: string
+      httpStatus?: number
+      durationMs?: number
+      error?: string
+    }[]
+  }
   ai?: string
 }
 

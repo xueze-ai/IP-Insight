@@ -1,6 +1,9 @@
 import type { zhIpinfo } from '../zh/ipinfo'
 
 export const enIpinfo: typeof zhIpinfo = {
+  wanNote: "This is the public egress address (WAN) observed by external services — not your computer's LAN adapter address (e.g. 192.168.x.x).",
+  geoNote: 'The location shown is IP network-assignment data from each source database; it may differ from your actual city and does not represent your precise physical location.',
+
   startDetection: 'Start full detection',
   differ: 'Sources differ in wording',
   conflict: 'Multi-source mismatch',

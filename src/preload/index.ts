@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { IPInsightAPI } from '@shared/api'
+import type { DiagEvent, DiagRun, DiagRunSummary, DiagStartRequest, DiagStartResponse, DiagStopResponse } from '@shared/diag'
 import type {
   AiAnalyzeRequest,
   AiAnalyzeResponse,
@@ -25,7 +27,7 @@ import type {
 // 渲染层不直接接触 Node / Electron，仅能调用此处显式暴露的方法。
 // =============================================================
 
-const api = {
+const api: IPInsightAPI = {
   // 运行 Ping0 检测
   detectPing0: (): Promise<NormalizedIPResult> =>
     ipcRenderer.invoke('detect:ping0'),
@@ -53,6 +55,21 @@ const api = {
   // 本机可达性实测
   probeReachability: (): Promise<ReachabilityResponse> =>
     ipcRenderer.invoke('probe:reachability'),
+
+  // ------------ 出口诊断（Sukka 模块） ------------
+  startDiag: (req: DiagStartRequest): Promise<DiagStartResponse> =>
+    ipcRenderer.invoke('diag:start', req),
+  stopDiag: (runId?: string): Promise<DiagStopResponse> =>
+    ipcRenderer.invoke('diag:stop', runId),
+  latestDiag: (): Promise<{ ok: boolean; run: DiagRun | null; summary: DiagRunSummary | null }> =>
+    ipcRenderer.invoke('diag:latest'),
+  // 订阅诊断进度事件；返回取消订阅函数
+  onDiagEvent: (cb: (e: DiagEvent) => void): (() => void) => {
+    const listener = (_event: unknown, e: DiagEvent): void => cb(e)
+    ipcRenderer.on('diag:event', listener)
+    ipcRenderer.send('diag:subscribe')
+    return () => ipcRenderer.removeListener('diag:event', listener)
+  },
 
   // 设置读写
   getSettings: (): Promise<SettingsResponse> => ipcRenderer.invoke('settings:get'),
@@ -135,4 +152,4 @@ const api = {
 
 contextBridge.exposeInMainWorld('ipInsight', api)
 
-export type IPInsightAPI = typeof api
+export { api }

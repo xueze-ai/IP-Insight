@@ -1418,3 +1418,143 @@ button {
     font-size: 28px;
   }
 }
+
+/* =============================================================
+   网络出口诊断（ExitDiag / 0.2.2）
+   ============================================================= */
+.diag-anchor {
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 12.5px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--surface-2, transparent);
+  transition: background var(--dur-fast) var(--ease);
+}
+.diag-anchor:hover {
+  background: rgba(26, 115, 232, 0.08);
+  text-decoration: none;
+}
+.diag-anchor-bar .diag-anchor {
+  border: 1px solid var(--border);
+}
+
+.diag-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 980px) {
+  .diag-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.diag-mod-card {
+  padding: 0;
+  overflow: hidden;
+}
+.diag-mod-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.diag-mod-head:hover {
+  background: rgba(127, 127, 127, 0.05);
+}
+.diag-mod-title {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.diag-mod-head .caption {
+  margin-left: auto;
+}
+.diag-mod-head > svg:last-child {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.diag-mod-summary {
+  padding: 0 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--text-2);
+}
+.diag-mod-body {
+  padding: 0 16px 14px;
+  border-top: 1px dashed var(--border);
+}
+
+.diag-probe {
+  border-bottom: 1px solid var(--border);
+}
+.diag-probe:last-child {
+  border-bottom: none;
+}
+.diag-probe-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.diag-probe-main:hover .diag-probe-target {
+  color: var(--primary);
+}
+.diag-probe-target {
+  min-width: 130px;
+  max-width: 190px;
+  font-size: 12.8px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.diag-probe-key {
+  flex: 1;
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.diag-probe-src {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.diag-probe-detail {
+  padding: 2px 0 12px 8px;
+}
+.diag-evidence {
+  margin-top: 8px;
+}
+.diag-evidence summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  user-select: none;
+}
+.diag-evidence-pre {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  background: var(--bg-subtle, rgba(127, 127, 127, 0.06));
+  border-radius: 8px;
+  font-size: 11.5px;
+  line-height: 1.65;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-2);
+}

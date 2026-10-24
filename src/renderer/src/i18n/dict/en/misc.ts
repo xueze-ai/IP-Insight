@@ -2,8 +2,8 @@ import type { zhMisc } from '../zh/misc'
 
 export const enMisc: typeof zhMisc = {
   tri: {
-    found: 'Found',
-    clear: 'Not found',
+    found: 'Flagged by source(s)',
+    clear: 'No source flags it',
     conflict: 'Sources disagree',
     unknown: 'Unknown',
     nodata: 'No data'
@@ -92,6 +92,12 @@ export const enMisc: typeof zhMisc = {
       webrtcLeak: 'WebRTC leak',
       blacklist: 'DNSBL',
       blacklistValue: '{listed} / {checked} listed'
+    },
+    diag: {
+      observedEgress: 'Observed egress',
+      nodes: 'Edge nodes',
+      failedProbes: 'Failed / timed out probes',
+      probeStats: 'Probes'
     }
   },
   speedtest: {

@@ -176,6 +176,11 @@ export function History(): JSX.Element {
                       {r.riskLevel ?? t('history.noRiskData')}
                     </span>
                     {r.netType && <span className="badge badge-neutral">{r.netType}</span>}
+                    {r.diag && (
+                      <span className="badge badge-info" title={t('history.diagTitle')}>
+                        {t('history.diagYes')}
+                      </span>
+                    )}
                     <span className="caption" style={{ marginLeft: 'auto' }}>
                       {t('history.sourceCount', { ok: r.successCount, total: r.totalCount })}
                       {r.aiReport ? t('history.withAi') : ''}
@@ -206,6 +211,23 @@ export function History(): JSX.Element {
                           </div>
                         ))}
                       </div>
+                      {r.diag ? (
+                        <div className="caption" style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <span className="badge badge-info">{t('history.diagYes')}</span>
+                          <span>
+                            {t('history.diagStats', {
+                              ok: r.diag.stats.ok,
+                              total: r.diag.stats.probes,
+                              sources: r.diag.stats.sources
+                            })}
+                          </span>
+                          <span className="mono">{r.diag.runId}</span>
+                        </div>
+                      ) : (
+                        <div className="caption" style={{ marginTop: 8 }}>
+                          {t('history.diagNo')}
+                        </div>
+                      )}
                       <div className="caption" style={{ marginTop: 8 }}>
                         {t('history.detectTime')}{new Date(r.startedAt).toLocaleString()} —{' '}
                         {new Date(r.finishedAt).toLocaleString()}

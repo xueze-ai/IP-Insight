@@ -74,7 +74,9 @@ export const enSettings: typeof zhSettings = {
     autoRunTitle: 'Auto-run overview scan on launch',
     autoRunDesc: 'Automatically start an overview scan when the app opens.',
     parallelTitle: 'Parallel detection',
-    parallelDesc: 'Scan all four sources at once (about as fast as the slowest source); turn off for sequential scanning (easier to follow).'
+    parallelDesc: 'Run sources in parallel (about as long as the slowest one); turn off for sequential scanning (easier to follow).',
+    lightExitTitle: 'Attach light exit diagnostics to full detection',
+    lightExitDesc: 'Run a lightweight public-egress lookup in parallel during full detection (Cloudflare diagnostic endpoints, 2 requests); the full exit diagnostics live on the Network Quality page. Turn off to run it only manually.'
   },
   privacy: {
     historyTitle: 'Save history',

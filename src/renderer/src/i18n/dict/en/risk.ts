@@ -15,8 +15,16 @@ export const enRisk: typeof zhRisk = {
     score: 'Normalized risk {v} / 100',
     scaleItem: '{name}: {raw} ({scale})',
     scales: '{list}.',
+    computedNote:
+      'Note: the overall level is a computed value — this app normalizes each source’s different scales and takes the median, for quick comparison only; it is not a score measured by any risk institution.',
     conflictNote:
       ' Risk levels disagree across sources (see methodologies and values above); the overall level is the median, not a definitive verdict.'
+  },
+  leak: {
+    dns: 'DNS egress consistency',
+    webrtc: 'WebRTC egress consistency',
+    dnsDesc: 'Source-reported status: {status}. A mismatch may come from normal split-tunnel rules or may expose the real location; only the sources’ reports are shown.',
+    webrtcDesc: 'Source-reported status: {status}. Observed via STUN probes; represents that probe path only.'
   },
   gpt: {
     badge: 'ChatGPT split egress',
@@ -64,7 +72,7 @@ export const enRisk: typeof zhRisk = {
     spamDescHit: 'Flagged by Spam lists: {engines} (return codes: {codes}).',
     spamDescClear: 'No hits on any Spam-type DNSBL list.',
     fraudDesc:
-      'None of the four data sources currently provide a fraud label; left blank for now and will appear automatically once a source with this field is added.',
+      'None of the connected data sources currently provide a fraud label; shown honestly as "No data" — not guessed, not filled in.',
     threatsHit: '{n} threat tags',
     threatsClear: 'No threat tags',
     threatsDescHit: 'Flagged by the Net.Coffee intel database: {tags} (single source).',

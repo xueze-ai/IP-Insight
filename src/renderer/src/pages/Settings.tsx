@@ -234,7 +234,12 @@ export function Settings({
       modelHint: t('settings.ai.customModelHint'),
       isCustom: true
     }))
-  ]
+  ].sort((a, b) => {
+    // 当前使用的提供商排在最前，其余保持原顺序
+    const ca = local.ai.current === a.id ? 0 : 1
+    const cb = local.ai.current === b.id ? 0 : 1
+    return ca - cb
+  })
 
   const providerCfg = (id: string): (AiProviderConfig & { name?: string }) | undefined =>
     (local.ai.providers as Record<string, AiProviderConfig>)[id] ??
@@ -707,6 +712,18 @@ export function Settings({
                   label={t('settings.detection.parallelTitle')}
                   onChange={(v) =>
                     commit({ ...local, detection: { ...local.detection, parallel: v } })
+                  }
+                />
+              </Row>
+              <Row
+                title={t('settings.detection.lightExitTitle')}
+                desc={t('settings.detection.lightExitDesc')}
+              >
+                <Switch
+                  checked={local.detection.lightExitProbe !== false}
+                  label={t('settings.detection.lightExitTitle')}
+                  onChange={(v) =>
+                    commit({ ...local, detection: { ...local.detection, lightExitProbe: v } })
                   }
                 />
               </Row>

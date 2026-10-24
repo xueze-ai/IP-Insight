@@ -29,6 +29,17 @@ function fmtTime(iso?: string): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
 }
 
+/* 诊断批次头信息（无诊断数据返回 null） */
+function diagHead(model: ReportModel): string | null {
+  if (!model.diag) return null
+  return mt('reportDiagRun', {
+    runId: model.diag.runId,
+    start: fmtTime(model.diag.startedAt),
+    end: fmtTime(model.diag.finishedAt),
+    status: model.diag.status
+  })
+}
+
 /* 极简 Markdown → HTML（AI 分析段落用）：标题 / 列表 / 加粗 / 行内代码 */
 function mdToHtml(md: string): string {
   const lines = md.split('\n')
@@ -129,6 +140,46 @@ export function buildTxt(model: ReportModel): string {
   L.push(sub)
   L.push(model.consistency)
   L.push('')
+  if (model.diag) {
+    const head = diagHead(model)
+    if (head) {
+      L.push(mt('reportSecDiag'))
+      L.push(sub)
+      L.push(head)
+      L.push('')
+      for (const m of model.diag.modules) {
+        L.push(`◆ ${m.id}　[${m.status}]`)
+        for (const r of m.rows) L.push(`    ${r.label}: ${r.value}`)
+        L.push('')
+      }
+      const T = {
+        module: mt('reportDiagColModule'),
+        target: mt('reportDiagColTarget'),
+        source: mt('reportDiagColSource'),
+        status: mt('reportDiagColStatus'),
+        ip: mt('reportDiagColIp'),
+        node: mt('reportDiagColNode'),
+        ms: mt('reportDiagColMs'),
+        err: mt('reportDiagColErr')
+      }
+      L.push(`${T.module} | ${T.target} | ${T.source} | ${T.status} | ${T.ip} | ${T.node} | ${T.ms} | ${T.err}`)
+      for (const p of model.diag.probes) {
+        L.push(
+          [
+            p.module,
+            p.target ?? '—',
+            p.source,
+            p.status,
+            p.ip ?? '—',
+            p.node ?? '—',
+            p.durationMs != null ? `${p.durationMs}ms` : '—',
+            p.error ?? ''
+          ].join(' | ')
+        )
+      }
+      L.push('')
+    }
+  }
   L.push(mt('reportSec5'))
   L.push(sub)
   L.push(model.ai ? model.ai : mt('reportNoAi'))
@@ -169,6 +220,47 @@ export function buildHtml(model: ReportModel): string {
   const fields = model.fields
     .map((f) => `<tr><td class="k">${esc(f.label)}</td><td>${esc(f.value)}</td></tr>`)
     .join('')
+
+  const diagHtml = (() => {
+    if (!model.diag) return `<p class="sub">${mt('reportDiagNoData')}</p>`
+    const dg = model.diag
+    const head = diagHead(model) ?? ''
+    const modCards = dg.modules
+      .map((m) => {
+        const rows = m.rows
+          .map((r) => `<tr><td class="k">${esc(r.label)}</td><td>${esc(r.value)}</td></tr>`)
+          .join('')
+        return `<div class="src"><div class="src-head"><span class="src-name">${esc(m.id)}</span>${
+          /成功|OK/.test(m.status) ? `<span class="ok">${esc(m.status)}</span>` : /失败|超时|Failed|timed/.test(m.status) ? `<span class="bad">${esc(m.status)}</span>` : `<span class="dur">${esc(m.status)}</span>`
+        }</div><table class="kv"><tbody>${rows}</tbody></table></div>`
+      })
+      .join('\n')
+    const T = {
+      module: mt('reportDiagColModule'),
+      target: mt('reportDiagColTarget'),
+      source: mt('reportDiagColSource'),
+      status: mt('reportDiagColStatus'),
+      ip: mt('reportDiagColIp'),
+      node: mt('reportDiagColNode'),
+      ms: mt('reportDiagColMs'),
+      err: mt('reportDiagColErr')
+    }
+    const probeRows = dg.probes
+      .map(
+        (p) =>
+          `<tr><td>${esc(p.module)}</td><td class="mono" style="word-break:break-all">${esc(p.target ?? '—')}</td><td>${esc(p.source)}</td><td>${esc(p.status)}</td><td class="mono" style="word-break:break-all">${esc(p.ip ?? '—')}</td><td class="mono">${esc(p.node ?? '—')}</td><td style="text-align:right">${p.durationMs != null ? `${p.durationMs}ms` : '—'}</td><td>${esc(p.error ?? '')}</td></tr>`
+      )
+      .join('\n')
+    return `
+  <div class="meta">${esc(head)}</div>
+  ${modCards}
+  <div class="card" style="overflow-x:auto">
+    <table>
+      <thead><tr><th>${esc(T.module)}</th><th>${esc(T.target)}</th><th>${esc(T.source)}</th><th>${esc(T.status)}</th><th>${esc(T.ip)}</th><th>${esc(T.node)}</th><th style="text-align:right">${esc(T.ms)}</th><th>${esc(T.err)}</th></tr></thead>
+      <tbody>${probeRows}</tbody>
+    </table>
+  </div>`
+  })()
 
   return `<!DOCTYPE html>
 <html lang="${mt('reportHtmlLang')}">
@@ -235,6 +327,9 @@ export function buildHtml(model: ReportModel): string {
 
   <h2>${mt('reportSec4')}</h2>
   <pre class="consistency">${esc(model.consistency)}</pre>
+
+  <h2>${mt('reportSecDiag')}</h2>
+  ${diagHtml}
 
   <h2>${mt('reportSec5')}</h2>
   <div class="ai">${model.ai ? mdToHtml(model.ai) : `<p class="sub">${mt('reportNoAi')}</p>`}</div>

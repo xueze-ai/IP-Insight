@@ -35,7 +35,7 @@ export function defaultSettings(): AppSettings {
       temperature: 0.4,
       maxTokens: 8192
     },
-    detection: { timeoutSec: 40, autoRunOnStart: false, parallel: false },
+    detection: { timeoutSec: 40, autoRunOnStart: false, parallel: false, lightExitProbe: true },
     privacy: { historyEnabled: true, historyRetentionDays: 30, clearHistoryOnExit: false },
     updates: { autoCheck: true }
   }

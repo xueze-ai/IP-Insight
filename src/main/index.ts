@@ -9,6 +9,14 @@ import { ippureAdapter } from './providers/ippure/IPPureAdapter'
 import { speedtestAdapter } from './providers/speedtest/SpeedtestAdapter'
 import { fetchServiceStatus } from './providers/netcoffee/serviceStatus'
 import { probeReachability } from './providers/localprobe/reachability'
+import {
+  latestRun,
+  onDiagEvent,
+  startRun as diagStartRun,
+  stopRun as diagStopRun,
+  summarizeRun as diagSummarize
+} from './diag/orchestrator'
+import type { DiagStartRequest } from '@shared/diag'
 import { getSettings, setSettings, resetSettings } from './settings'
 import {
   listHistory,
@@ -58,6 +66,10 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 let mainWindow: BrowserWindow | null = null
+
+// 自动测试钩子期间隐藏窗口的销毁会触发 window-all-closed，
+// 需要抑制默认退出行为，否则钩子还没收集完结果进程就退出了。
+let suppressWindowAllClosedQuit = false
 
 // 实测/回归钩子的输出目录：开发态默认项目 test-output；
 // 打包态 asar 内不可写，用 IPI_TEST_OUT 环境变量指向外部目录。
@@ -557,7 +569,7 @@ async function setupHistVerify(): Promise<void> {
     const t3 = await bodyText()
     console.log('[HIST_VERIFY] loaded', t3.slice(0, 260))
 
-    // 四格式导出（直写文件）
+    // 四格式导出（直写文件）——附带出口诊断章节（若该记录含诊断摘要）
     const rec = listHistory()[0]
     if (rec) {
       const fsV = await import('fs')
@@ -592,7 +604,41 @@ async function setupHistVerify(): Promise<void> {
             }))
           }
         ],
-        raw: rec.results.map((r) => ({ source: r.provider.name, raw: r.raw ?? null }))
+        raw: rec.results.map((r) => ({ source: r.provider.name, raw: r.raw ?? null })),
+        diag: rec.diag
+          ? {
+              runId: rec.diag.runId,
+              startedAt: rec.diag.startedAt,
+              finishedAt: rec.diag.finishedAt,
+              status: String(rec.diag.status),
+              modules: Object.entries(rec.diag.moduleStatus).map(([id, st]) => {
+                const dps = rec.diag!.probes[id as 'publicIp' | 'splitTunnel' | 'cdnNode' | 'dnsExit'] ?? []
+                return {
+                  id,
+                  status: String(st),
+                  rows: dps.slice(0, 4).map((p) => ({
+                    label: p.target ?? p.id,
+                    value: p.ip ? `${p.ip}（${p.status}）` : (p.error ?? p.status)
+                  }))
+                }
+              }),
+              probes: Object.entries(rec.diag.probes).flatMap(([id, ps]) =>
+                ps.map((p) => ({
+                  module: id,
+                  target: p.target,
+                  source: p.source,
+                  method: p.method,
+                  via: p.via,
+                  status: String(p.status),
+                  ip: p.ip,
+                  node: p.node,
+                  httpStatus: p.httpStatus,
+                  durationMs: p.durationMs,
+                  error: p.error
+                }))
+              )
+            }
+          : undefined
       }
       for (const f of ['html', 'pdf', 'json', 'txt'] as const) {
         const p = join(dir, `report-test.${f}`)
@@ -608,6 +654,86 @@ async function setupHistVerify(): Promise<void> {
     console.log('[HIST_VERIFY] done')
   } catch (e) {
     console.log('[HIST_VERIFY] error', String(e))
+  } finally {
+    app.quit()
+  }
+}
+
+// [UI 回归钩子] IPI_UI_VERIFY_EXIT=1：网络质量页 → 出口诊断 → 一键诊断 →
+// 等待完成 → 展开模块明细 → dump 文本与截图（真实 IPC 与真实采集）。
+async function setupExitDiagVerify(): Promise<void> {
+  if (process.env['IPI_UI_VERIFY_EXIT'] !== '1' || !mainWindow) return
+  const wc = mainWindow.webContents
+  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+  const exec = (expr: string): Promise<unknown> => wc.executeJavaScript(expr, true)
+  const click = (text: string): Promise<unknown> =>
+    exec(`(function(){var b=[].slice.call(document.querySelectorAll('button')).find(function(x){return x.textContent.indexOf(${JSON.stringify(text)})>=0});if(b){b.click();return true}return false})()`)
+  const navTo = (text: string): Promise<unknown> =>
+    exec(`(function(){var el=[].slice.call(document.querySelectorAll('.nav-item')).find(function(x){return x.textContent.indexOf(${JSON.stringify(text)})>=0});if(el){el.click();return true}return false})()`)
+  const shot = async (name: string): Promise<void> => {
+    try {
+      const fsV = await import('fs')
+      const img = await wc.capturePage()
+      fsV.writeFileSync(join(__dirname, '../../test-output/' + name), img.toPNG())
+    } catch (e) {
+      console.log('[EXIT_VERIFY] shot skip', name, String(e))
+    }
+  }
+
+  await new Promise<void>((resolve) => {
+    if (!wc.isLoading()) resolve()
+    else wc.once('did-finish-load', () => resolve())
+  })
+  await sleep(1500)
+
+  try {
+    suppressWindowAllClosedQuit = true
+    console.log('[EXIT_VERIFY] start')
+    await navTo('网络质量')
+    await sleep(900)
+    await exec(`document.getElementById('exit-diag')?.scrollIntoView({block:'start'})`)
+    await sleep(400)
+    await shot('exit-diag-idle.png')
+    console.log('[EXIT_VERIFY] click runAll=', await click('一键出口诊断'))
+    await exec('window.__evtCount = 0; window.ipInsight.onDiagEvent(function(){ window.__evtCount++ }); undefined')
+    await sleep(3000)
+    console.log('[EXIT_VERIFY] events in 3s=', await exec('window.__evtCount'))
+    await shot('exit-diag-running.png')
+    const t0 = Date.now()
+    for (;;) {
+      const txt = (await exec(
+        `document.getElementById('exit-diag')?.innerText.replace(/\\s+/g,' ')`
+      )) as string
+      if ((txt && !txt.includes('进行中') && (txt.includes('项成功') || txt.includes('已取消'))) || Date.now() - t0 > 110000) {
+        console.log('[EXIT_VERIFY] settled after', Math.round((Date.now() - t0) / 1000), 's')
+        const run = latestRun()
+        console.log('[EXIT_VERIFY] main-side run status=', run?.status, 'modules=', JSON.stringify(run?.modules.map((m) => `${m.id}:${m.status}:${m.probes.length}`)))
+        break
+      }
+      await sleep(2000)
+    }
+    await exec(`document.getElementById('exit-diag')?.scrollIntoView({block:'start'})`)
+    await sleep(400)
+    await shot('exit-diag-done.png')
+    // 展开 CDN 模块与一个探测项明细
+    await exec(`(function(){var b=[].slice.call(document.querySelectorAll('.diag-mod-head')).find(function(x){return x.innerText.indexOf('CDN')>=0});if(b){b.click();return true}return false})()`)
+    await sleep(700)
+    await exec(`(function(){var b=[].slice.call(document.querySelectorAll('.diag-probe-main')).find(function(x){return x.innerText.indexOf('Cloudflare')>=0});if(b){b.click();return true}return false})()`)
+    await sleep(700)
+    await shot('exit-diag-cdn-open.png')
+    const finalText = (await exec(
+      `document.getElementById('exit-diag')?.innerText.replace(/\\s+/g,' ').slice(0,1400)`
+    )) as string
+    console.log('[EXIT_VERIFY] final:', String(finalText).slice(0, 1200))
+    console.log(
+      '[EXIT_VERIFY] domBadges=',
+      await exec(
+        'JSON.stringify([].slice.call(document.querySelectorAll(".diag-mod-head .badge")).map(function(b){return b.textContent}))'
+      )
+    )
+    console.log('[EXIT_VERIFY] done')
+  } catch (e) {
+    console.log('[EXIT_VERIFY] error', String(e))
   } finally {
     app.quit()
   }
@@ -756,6 +882,37 @@ app.whenReady().then(async () => {
     return
   }
 
+  // [自动测试钩子] 出口诊断（真实采集）：运行指定模块，写 JSON 后退出
+  if (process.env['IPI_AUTO_TEST'] === 'diag') {
+    suppressWindowAllClosedQuit = true
+    const mods = (process.env['IPI_DIAG_MODULES'] || 'publicIp,dnsExit')
+      .split(',')
+      .filter((m) => ['publicIp', 'splitTunnel', 'cdnNode', 'dnsExit'].includes(m)) as DiagStartRequest['modules']
+    const runId = await diagStartRun(mods, 'network')
+    console.log('[AUTO_TEST] diag runId=', runId)
+    const deadline = Date.now() + 120000
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 2000))
+      const run = latestRun()
+      if (!run) continue
+      if (run.status !== 'running' || Date.now() > deadline) {
+        const fs = await import('fs')
+        const dir = await testOutDir()
+        fs.writeFileSync(join(dir, 'diag.result.json'), JSON.stringify(run, null, 2))
+        for (const m of run.modules) {
+          console.log(`[AUTO_TEST] ${m.id}: ${m.status}`)
+          for (const p of m.probes) {
+            console.log(`  - ${p.id} [${p.source}] ${p.status}${p.ip ? ` ip=${p.ip}` : ''}${p.node ? ` node=${p.node}` : ''}${p.error ? ` err=${p.error.slice(0, 80)}` : ''} ${p.durationMs ?? ''}ms`)
+          }
+        }
+        console.log('[AUTO_TEST] run status=', run.status)
+        break
+      }
+    }
+    app.quit()
+    return
+  }
+
   // [诊断钩子] 详细诊断 speed.cloudflare.com 连接（代理解析 + 带超时 fetch）
   if (process.env['IPI_AUTO_TEST'] === 'netdiag2') {
     const urls = [
@@ -872,6 +1029,34 @@ app.whenReady().then(async () => {
     }
   })
 
+  // ------------ 出口诊断（Sukka 模块：公网出口 / 网站分流 / CDN 节点 / DNS 出口） ------------
+  ipcMain.handle('diag:start', async (_event, req: DiagStartRequest) => {
+    try {
+      const mods = Array.isArray(req?.modules)
+        ? req.modules.filter((m) => ['publicIp', 'splitTunnel', 'cdnNode', 'dnsExit'].includes(m))
+        : []
+      if (!mods.length) return { ok: false, error: 'no modules' }
+      const runId = await diagStartRun(mods as DiagStartRequest['modules'], req.origin === 'dashboard' ? 'dashboard' : 'network')
+      return { ok: true, runId }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  })
+  ipcMain.handle('diag:stop', async (_event, runId?: string) => {
+    return { ok: diagStopRun(runId) }
+  })
+  ipcMain.handle('diag:latest', async () => {
+    const run = latestRun()
+    return { ok: true, run, summary: run ? diagSummarize(run) : null }
+  })
+  // 进度事件：限制转发内容（runId / 模块 / 探测项 / 状态 / 消息）
+  ipcMain.on('diag:subscribe', (event) => {
+    const off = onDiagEvent((e) => {
+      if (!event.sender.isDestroyed()) event.sender.send('diag:event', e)
+    })
+    event.sender.once('destroyed', off)
+  })
+
   // ------------ 设置 ------------
   ipcMain.handle('settings:get', async () => ({ ok: true, settings: getSettings() }))
   ipcMain.handle('settings:set', async (_event, patch: DeepPartial<AppSettings>) => ({
@@ -953,12 +1138,15 @@ app.whenReady().then(async () => {
       ? payload.results
       : []
     if (!results.length) return { ok: false, error: mt('aiNoData') }
-    console.log('[AI] payload bytes', JSON.stringify(results).length)
+    const diagLines = Array.isArray(payload?.diagLines)
+      ? payload.diagLines.map((l) => String(l).slice(0, 300)).slice(0, 60)
+      : []
+    console.log('[AI] payload bytes', JSON.stringify(results).length, 'diagLines', diagLines.length)
     const t0 = Date.now()
     let full = ''
     const lang = s.appearance.language === 'en' ? 'en' : 'zh'
     try {
-      const messages = buildMessages(results, String(payload?.consistency ?? ''), s.ai.extraPrompt, lang)
+      const messages = buildMessages(results, String(payload?.consistency ?? ''), s.ai.extraPrompt, lang, diagLines)
       for (let cont = 0; cont < 4; cont++) {
         const r = await chatStream({
           baseUrl: p.cfg.baseUrl,
@@ -1018,7 +1206,10 @@ app.whenReady().then(async () => {
     const lang = s.appearance.language === 'en' ? 'en' : 'zh'
     const t0 = Date.now()
     try {
-      const messages = buildAskMessages(results, String(payload?.consistency ?? ''), question, lang)
+      const diagLines = Array.isArray(payload?.diagLines)
+        ? payload.diagLines.map((l) => String(l).slice(0, 300)).slice(0, 60)
+        : []
+      const messages = buildAskMessages(results, String(payload?.consistency ?? ''), question, lang, diagLines)
       const r = await chatStream({
         baseUrl: p.cfg.baseUrl,
         apiKey,
@@ -1138,6 +1329,7 @@ app.whenReady().then(async () => {
   void setupSettingsVerify()
   void setupFpVerify()
   void setupHistVerify()
+  void setupExitDiagVerify()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -1145,5 +1337,6 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
+  if (suppressWindowAllClosedQuit) return
   if (process.platform !== 'darwin') app.quit()
 })

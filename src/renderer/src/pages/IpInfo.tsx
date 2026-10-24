@@ -148,6 +148,9 @@ export function IpInfo(): JSX.Element {
         {t('ipinfo.coverage', { n: rs.length })}
         {latest ? t('ipinfo.latest', { date: new Date(latest).toLocaleString() }) : ''}
       </p>
+      <p className="caption" style={{ marginTop: 6, maxWidth: 640, lineHeight: 1.7 }}>
+        {t('ipinfo.wanNote')}
+      </p>
 
       <div className="ip-cols" style={{ marginTop: 26 }}>
         <Section title={t('ipinfo.section.network')}>
@@ -166,6 +169,10 @@ export function IpInfo(): JSX.Element {
           <Row k={t('ipinfo.row.lon')}><FieldVal agg={lon} tone="differ" /></Row>
         </Section>
       </div>
+
+      <p className="caption" style={{ marginTop: 12, maxWidth: 640, lineHeight: 1.7 }}>
+        {t('ipinfo.geoNote')}
+      </p>
 
       {lk && (
         <div className="card" style={{ marginTop: 20 }}>

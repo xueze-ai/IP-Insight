@@ -4,11 +4,14 @@ import type {
   ReportModel,
   ReportSource
 } from '@shared/types'
+import type { DiagRunSummary, DiagStatus } from '@shared/diag'
 import {
   aggregateField,
   buildConsistencyText,
   exitGroups,
   flagConsensus,
+  leakBadgeCls,
+  leakBadgeState,
   TRI_VIEW,
   type FieldAggregate
 } from './aggregate'
@@ -185,6 +188,87 @@ export interface ReportInput {
   results: NormalizedIPResult[]
   sources: { name: string; ok: boolean; error?: string; durationMs?: number }[]
   aiReport?: string | null
+  diag?: DiagRunSummary | null
+}
+
+/** 诊断状态 → 报告用本地化文本 */
+function diagStatusText(s: DiagStatus | undefined): string {
+  const map: Record<DiagStatus, string> = {
+    pending: tt('diag.status.pending'),
+    running: tt('diag.status.running'),
+    success: tt('diag.status.success'),
+    partial: tt('diag.status.partial'),
+    failed: tt('diag.status.failed'),
+    timeout: tt('diag.status.timeout'),
+    canceled: tt('diag.status.canceled'),
+    skipped: tt('diag.status.skipped'),
+    unsupported: tt('diag.status.unsupported')
+  }
+  return (s && map[s]) || String(s ?? '—')
+}
+
+const DIAG_MODULE_KEYS: Record<'publicIp' | 'splitTunnel' | 'cdnNode' | 'dnsExit', Parameters<typeof tt>[0]> = {
+  publicIp: 'diag.module.publicIp',
+  splitTunnel: 'diag.module.splitTunnel',
+  cdnNode: 'diag.module.cdnNode',
+  dnsExit: 'diag.module.dnsExit'
+}
+
+/** 把一轮诊断摘要转成人类可读的模块行 + 探测项明细 */
+function buildDiagSection(diag: DiagRunSummary): ReportModel['diag'] {
+  const moduleIds = ['publicIp', 'splitTunnel', 'cdnNode', 'dnsExit'] as const
+  const modules = moduleIds
+    .filter((id) => diag.moduleStatus[id] != null)
+    .map((id) => {
+      const probes = diag.probes[id] ?? []
+      const rows: { label: string; value: string }[] = []
+      // 关键结果行
+      const ips = [...new Set(probes.filter((p) => p.ip && p.status === 'success').map((p) => p.ip as string))]
+      if (ips.length) rows.push({ label: tt('misc.report.diag.observedEgress'), value: ips.join(' / ') })
+      const nodes = probes.filter((p) => p.node && p.status === 'success')
+      if (nodes.length) {
+        rows.push({
+          label: tt('misc.report.diag.nodes'),
+          value: nodes.slice(0, 6).map((p) => `${p.cdn ?? p.target ?? ''} ${p.node}`).join('；') + (nodes.length > 6 ? ` …(${nodes.length})` : '')
+        })
+      }
+      const bad = probes.filter((p) => p.status === 'failed' || p.status === 'timeout')
+      if (bad.length) {
+        rows.push({
+          label: tt('misc.report.diag.failedProbes'),
+          value: bad.slice(0, 6).map((p) => `${p.target ?? p.id}（${p.error ?? diagStatusText(p.status)}）`).join('；')
+        })
+      }
+      rows.push({ label: tt('misc.report.diag.probeStats'), value: tt('diag.moduleStats', { ok: probes.filter((p) => p.status === 'success').length, total: probes.length }) })
+      return {
+        id,
+        status: diagStatusText(diag.moduleStatus[id]),
+        rows
+      }
+    })
+  const probeRows = moduleIds.flatMap((id) =>
+    (diag.probes[id] ?? []).map((p) => ({
+      module: tt(DIAG_MODULE_KEYS[id]),
+      target: p.target,
+      source: p.source,
+      method: p.method,
+      via: p.via,
+      status: diagStatusText(p.status),
+      ip: p.ip,
+      node: p.node,
+      httpStatus: p.httpStatus,
+      durationMs: p.durationMs,
+      error: p.error
+    }))
+  )
+  return {
+    runId: diag.runId,
+    startedAt: diag.startedAt,
+    finishedAt: diag.finishedAt,
+    status: diagStatusText(diag.status),
+    modules,
+    probes: probeRows
+  }
 }
 
 export function buildReportModel(input: ReportInput): ReportModel {
@@ -269,6 +353,7 @@ export function buildReportModel(input: ReportInput): ReportModel {
     successCount: ok.length,
     totalCount: input.sources.length,
     sources,
+    diag: input.diag ? buildDiagSection(input.diag) : undefined,
     sourceDetails: input.results.map((r) => {
       const s = input.sources.find((x) => x.name === r.provider.name)
       return {
@@ -299,8 +384,38 @@ export function recordToInput(rec: HistoryRecord): ReportInput {
       error: s.error,
       durationMs: s.durationMs
     })),
-    aiReport: rec.aiReport
+    aiReport: rec.aiReport,
+    diag: rec.diag
   }
+}
+
+/** 诊断摘要 → 有界 AI 事实行（不含原始证据全文；行数与长度受限） */
+export function diagAiLines(diag: DiagRunSummary): string[] {
+  const moduleNames: Record<string, string> = {
+    publicIp: tt('diag.module.publicIp'),
+    splitTunnel: tt('diag.module.splitTunnel'),
+    cdnNode: tt('diag.module.cdnNode'),
+    dnsExit: tt('diag.module.dnsExit')
+  }
+  const lines: string[] = []
+  for (const id of Object.keys(moduleNames)) {
+    const probes = diag.probes[id as keyof typeof diag.probes] ?? []
+    for (const p of probes.slice(0, 12)) {
+      const target = p.target ?? p.id
+      if (p.status === 'success') {
+        if (p.ip) {
+          lines.push(`[${moduleNames[id]}] ${target}: ${tt('diag.status.success')}, exit ${p.ip}${p.family ? ` (${p.family})` : ''}${p.node ? `, node ${p.node}` : ''}, via ${p.via}, source ${p.source}`)
+        } else if (p.node) {
+          lines.push(`[${moduleNames[id]}] ${target}: ${tt('diag.status.success')}, node ${p.node}, via ${p.via}, source ${p.source}`)
+        } else {
+          lines.push(`[${moduleNames[id]}] ${target}: ${tt('diag.keyResult.reachableOnly')}, via ${p.via}`)
+        }
+      } else if (p.status !== 'pending' && p.status !== 'skipped') {
+        lines.push(`[${moduleNames[id]}] ${target}: ${diagStatusText(p.status)}${p.error ? ` (${p.error.slice(0, 60)})` : ''}`)
+      }
+    }
+  }
+  return lines.slice(0, 60)
 }
 
 // =============================================================

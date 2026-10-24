@@ -1,7 +1,13 @@
 export const zhNetwork = {
   kicker: 'Network Quality · 本机实测 + 全球节点',
   intro:
-    'Download / Upload / Ping / Jitter 由内置 Cloudflare 官方测速引擎在隐藏窗口测量；全球节点延迟由 Net.Coffee 提供；服务可用性聚合各服务官方状态页。',
+    'Download / Upload / Ping / Jitter 由内置 Cloudflare 官方测速引擎在隐藏窗口测量；全球节点延迟由 Net.Coffee 提供；服务可用性聚合各服务官方状态页。页面底部提供网络出口诊断（公网出口 / 网站分流 / CDN 节点 / DNS 出口）。',
+  anchor: {
+    speed: '测速',
+    ping: '全球节点',
+    svc: '服务可用性',
+    reach: '本机可达性'
+  },
   idleDesc:
     '测速将在后台隐藏窗口运行 Cloudflare 官方测量引擎，全程约 1–2 分钟（带宽越好耗时越长）。 测速期间可继续使用其他页面，结果会保留在本页。 丢包率依赖 WebRTC TURN 中继，若当前网络环境不可达将显示「未测得」。',
   startSpeedtest: '开始测速',
@@ -25,12 +31,12 @@ export const zhNetwork = {
   downloadLabel: 'Download 下载',
   uploadLabel: 'Upload 上传',
   kv: {
-    ping: 'Ping 空载延迟',
-    jitter: 'Jitter 空载抖动',
-    loadedPingDown: '下载负载下 Ping / Jitter',
-    loadedPingUp: '上传负载下 Ping / Jitter',
+    ping: '延迟（空载）',
+    jitter: '延迟波动（抖动，空载）',
+    loadedPingDown: '下载负载下延迟 / 抖动',
+    loadedPingUp: '上传负载下延迟 / 抖动',
     loss: '丢包率',
-    lossTitle: '依赖 WebRTC TURN 中继；当前网络环境不可达时不提供该项',
+    lossTitle: '丢包指「有数据未成功到达」。此项依赖 WebRTC TURN 中继；当前网络环境不可达时不提供，显示「未测得」而非 0',
     exitIp: '测速出口 IP',
     exitIpDetail: '（{colo}{suffix}）',
     exitIpSep: ' · {loc}',

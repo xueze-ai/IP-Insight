@@ -21,20 +21,35 @@ export const enDashboard: typeof zhDashboard = {
   },
   running: 'Detection in progress',
   runningDesc: 'Visiting detection sites in the background, please wait…',
-  currentIp: 'Current public IP',
-  doneKicker: 'Detection complete · {ok}/4 sources succeeded',
+  currentIp: 'Current public egress IP',
+  doneKicker: 'Detection complete · {ok}/{total} sources succeeded',
   alert: {
-    conflict: 'Sources disagree on some attributes; those items cannot be confirmed for now; ',
-    leak: 'DNS / WebRTC egress differs from the ChatGPT egress — real location leak detected.',
-    tail: 'Below are the per-item multi-source readings. See the full results and AI analysis for conclusions.'
+    conflict: 'Detection sources disagree on some attributes; those items cannot be confirmed for now; ',
+    leak: 'Sources report that DNS / WebRTC request egress differs from the main egress (possible location leak).',
+    tail: 'Below are the per-source readings; full evidence is available in expandable details and the AI analysis.'
   },
   row: {
-    vpn: 'VPN',
-    proxy: 'Proxy',
-    tor: 'Tor',
+    vpn: 'VPN flag',
+    proxy: 'Proxy flag',
+    tor: 'Tor exit flag',
     native: 'Nativeness',
-    dnsLeak: 'DNS leak',
-    webrtcLeak: 'WebRTC leak'
+    dnsLeak: 'DNS egress consistency',
+    webrtcLeak: 'WebRTC egress consistency'
   },
-  chatgptExit: ' · ChatGPT egress {ip} ({country})'
+  chatgptExit: ' · ChatGPT egress {ip} ({country})',
+  diagBadge: 'Exit diagnostics',
+  diagExits: 'Public egress (multiple vantage points): {ips}',
+  diagNone: 'No public egress observed this run',
+  diagFailed: '{n} vantage point(s) failed',
+  diagMore: 'Open full exit diagnostics →',
+  explain: {
+    show: 'What do these fields mean?',
+    hide: 'Hide explanations',
+    isp: 'ISP: the company providing your internet access, e.g. a home broadband carrier or a hosting operator.',
+    asn: 'ASN (Autonomous System Number): the unique number of a network on the internet; it identifies which operator network the IP belongs to.',
+    vpnProxy: 'VPN / Proxy flags: what each detection source records about this address (a database entry, not a scan of your device). "Flagged" means at least one source marks it; "Not found" means a source explicitly says otherwise.',
+    native: 'Nativeness: whether the IP is announced by its own carrier (so-called "native IP"). This reflects the source database — not good/bad, and not fitness for any specific use.',
+    leak: 'DNS / WebRTC egress consistency: whether the exit that "resolved domains / made UDP connections" for you differs from the main egress. A difference may come from normal split-tunnel rules, or may expose your real location; only the sources\' reports are shown.',
+    diag: 'Exit diagnostics: observe the actual egress your requests use from independent vantage points (e.g. Cloudflare diagnostic endpoints, authoritative DNS records). Different exits per target are common and not automatically an anomaly.'
+  }
 }

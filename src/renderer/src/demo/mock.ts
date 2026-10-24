@@ -8,6 +8,7 @@ import type {
   ServiceStatusFeed,
   UpdateStatus
 } from '@shared/types'
+import type { DiagEvent, DiagRun, DiagRunSummary } from '@shared/diag'
 
 // =============================================================
 // Demo 模式（浏览器预览用）
@@ -140,7 +141,7 @@ const GPT: NormalizedIPResult = {
     deviceMemory: 8,
     canvas: 'DEMO0001',
     webgl: 'DEMO0002',
-    webglRenderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)',
+    webglRenderer: 'ANGLE (NVIDIA, Generic NVIDIA GPU Direct3D11 vs_5_0 ps_5_0, D3D11)',
     audio: '124.04347776',
     visitorId: 'DEMO00FF',
     cookiesEnabled: true,
@@ -266,7 +267,7 @@ function demoHistory(): HistoryRecord[] {
     t.setHours(h, m, 0, 0)
     return t.toISOString()
   }
-  const mk = (id: string, days: number, ip: string, risk: string, net: string): HistoryRecord => ({
+  const mk = (id: string, days: number, ip: string, risk: string, net: string, withDiag?: boolean): HistoryRecord => ({
     id,
     startedAt: d(days, 14, 5),
     finishedAt: d(days, 14, 6),
@@ -282,10 +283,11 @@ function demoHistory(): HistoryRecord[] {
       { key: 'netcoffee_gpt', name: 'Net.Coffee GPT', ok: true, durationMs: 13400 },
       { key: 'ippure', name: 'IPPure', ok: true, durationMs: 5200 }
     ],
-    results: RESULTS.map((r) => ({ ...r, ip: r.provider.id === 'netcoffee_gpt' ? GPT_IP : ip }))
+    results: RESULTS.map((r) => ({ ...r, ip: r.provider.id === 'netcoffee_gpt' ? GPT_IP : ip })),
+    diag: withDiag ? demoDiagSummary({ ...DEMO_DIAG_RUN, runId: `diag-${id}` }) : undefined
   })
   return [
-    mk('demo-1', 0, MAIN_IP, '中风险', '数据中心'),
+    mk('demo-1', 0, MAIN_IP, '中风险', '数据中心', true),
     mk('demo-2', 1, '203.0.113.42', '低风险', '住宅'),
     mk('demo-3', 3, '198.51.100.88', '高风险', '数据中心')
   ]
@@ -312,17 +314,145 @@ let settings: AppSettings = {
     temperature: 0.4,
     maxTokens: 8192
   },
-  detection: { timeoutSec: 40, autoRunOnStart: false, parallel: false },
+  detection: { timeoutSec: 40, autoRunOnStart: false, parallel: false, lightExitProbe: true },
   privacy: { historyEnabled: true, historyRetentionDays: 30, clearHistoryOnExit: false },
   updates: { autoCheck: true }
 }
 
-let history: HistoryRecord[] = demoHistory()
 const logListeners = new Set<(m: string) => void>()
 const updateListeners = new Set<(s: UpdateStatus) => void>()
 const chunkListeners = new Set<(d: string) => void>()
 const stageListeners = new Set<(s: string) => void>()
 const askListeners = new Set<(d: string) => void>()
+const diagListeners = new Set<(e: DiagEvent) => void>()
+
+// =============================================================
+// Demo 出口诊断：覆盖 正常 / 多出口 / IPv6 未测得 / 部分失败 四种形态。
+// 全部使用文档保留地址，显著标注样例；不回退到 Demo 于真实失败场景。
+// =============================================================
+
+const DEMO_DIAG_RUN: DiagRun = {
+  runId: 'diag-demo-0001',
+  startedAt: nowIso(),
+  status: 'partial',
+  origin: 'network',
+  modules: [
+    {
+      id: 'publicIp',
+      status: 'partial',
+      probes: [
+        {
+          id: 'trace-www.cloudflare.com',
+          source: 'cloudflare',
+          sourceUrl: 'https://www.cloudflare.com/zh-cn/privacy/',
+          target: 'www.cloudflare.com',
+          targetHost: 'www.cloudflare.com',
+          method: 'HTTP GET /cdn-cgi/trace',
+          via: 'main-http',
+          status: 'success',
+          ip: MAIN_IP,
+          family: 'ipv4',
+          node: 'SIN',
+          country: 'SG',
+          httpStatus: 200,
+          durationMs: 210,
+          evidence: [{ kind: 'http', status: 200, durationMs: 210, snippet: 'ip=203.0.113.7\ncolo=SIN\nloc=SG\n…', note: '（Demo 样例）Cloudflare trace 原文' }]
+        },
+        {
+          id: 'trace-speed.cloudflare.com',
+          source: 'cloudflare',
+          target: 'speed.cloudflare.com',
+          targetHost: 'speed.cloudflare.com',
+          method: 'HTTP GET /cdn-cgi/trace',
+          via: 'main-http',
+          status: 'success',
+          ip: MAIN_IP,
+          family: 'ipv4',
+          node: 'SIN',
+          httpStatus: 200,
+          durationMs: 230
+        },
+        {
+          id: 'sukka-page',
+          source: 'sukka-page',
+          sourceUrl: 'https://ip.skk.moe/',
+          target: 'ip.skk.moe',
+          targetHost: 'ip.skk.moe',
+          method: '页面流程提取',
+          via: 'browser-page',
+          status: 'failed',
+          error: '（Demo 样例）站点返回人机验证页（Cloudflare 挑战）。本应用不绕过验证。',
+          durationMs: 4100
+        }
+      ]
+    },
+    {
+      id: 'splitTunnel',
+      status: 'partial',
+      probes: [
+        { id: 'split-ChatGPT', source: 'cloudflare', target: 'ChatGPT', targetHost: 'chatgpt.com', method: 'HTTP GET /cdn-cgi/trace', via: 'main-http', status: 'success', ip: GPT_IP, family: 'ipv4', node: 'NRT', httpStatus: 200, durationMs: 320 },
+        { id: 'split-Claude', source: 'cloudflare', target: 'Claude', targetHost: 'claude.ai', method: 'HTTP GET /cdn-cgi/trace', via: 'main-http', status: 'success', ip: GPT_IP, family: 'ipv4', node: 'NRT', httpStatus: 200, durationMs: 300 },
+        { id: 'split-GitHub', source: 'cloudflare', target: 'GitHub', targetHost: 'gitlab.com', method: 'HTTP GET /cdn-cgi/trace', via: 'main-http', status: 'success', ip: MAIN_IP, family: 'ipv4', node: 'SIN', httpStatus: 200, durationMs: 260 },
+        { id: 'split-百度', source: 'target-site', target: '百度', targetHost: 'www.baidu.com', method: 'HTTP GET', via: 'main-http', status: 'success', httpStatus: 200, durationMs: 40 },
+        { id: 'split-Discord', source: 'cloudflare', target: 'Discord', targetHost: 'discord.com', method: 'HTTP GET /cdn-cgi/trace', via: 'main-http', status: 'timeout', error: '（Demo 样例）probe hard-timeout', durationMs: 13000 }
+      ]
+    },
+    {
+      id: 'cdnNode',
+      status: 'success',
+      probes: [
+        { id: 'cdn-Cloudflare', source: 'cdn-target', target: 'Cloudflare', targetHost: 'www.cloudflare.com', method: 'HTTP GET /cdn-cgi/trace', via: 'main-http', status: 'success', node: 'SIN', cdn: 'Cloudflare', httpStatus: 200, durationMs: 220 },
+        { id: 'cdn-Fastly', source: 'cdn-target', target: 'Fastly', targetHost: 'any.pops.fastly-analytics.com', method: 'HTTP GET', via: 'main-http', status: 'success', node: 'SIN', cdn: 'Fastly', httpStatus: 200, durationMs: 260 },
+        { id: 'cdn-AWS CloudFront', source: 'cdn-target', target: 'AWS CloudFront', targetHost: 'djlzvy5xcvhxt.cloudfront.net', method: 'HTTP GET', via: 'main-http', status: 'success', node: 'HKG', cdn: 'AWS CloudFront', httpStatus: 200, durationMs: 290 },
+        { id: 'cdn-Bunny Standard', source: 'cdn-target', target: 'Bunny Standard', targetHost: 'test.b-cdn.net', method: 'HTTP GET', via: 'main-http', status: 'success', node: 'JP1', cdn: 'Bunny Standard', httpStatus: 200, durationMs: 310 },
+        { id: 'cdn-CDN77', source: 'cdn-target', target: 'CDN77', targetHost: '1596384882.rsc.cdn77.org', method: 'HTTP GET', via: 'main-http', status: 'success', node: 'losangelesUSCA', cdn: 'CDN77', httpStatus: 200, durationMs: 380 },
+        { id: 'cdn-Zenlayer', source: 'cdn-target', target: 'Zenlayer', targetHost: 'test-perfops.ecn.zenlayer.net', method: 'HTTP GET', via: 'main-http', status: 'success', httpStatus: 200, durationMs: 330 }
+      ]
+    },
+    {
+      id: 'dnsExit',
+      status: 'partial',
+      probes: [
+        { id: 'dns-system-google-authoritative', source: 'google-authoritative', target: '系统默认解析器', targetHost: 'o-o.myaddr.l.google.com', method: 'DNS TXT (UDP 53)', via: 'dns-udp', status: 'success', ip: '198.51.100.10', family: 'ipv4', durationMs: 30, evidence: [{ kind: 'dns', durationMs: 30, snippet: '198.51.100.10', note: '（Demo 样例）诊断 TXT 原文' }] },
+        { id: 'dns-alidns-google-authoritative', source: 'google-authoritative', target: 'AliDNS (223.5.5.5)', targetHost: 'o-o.myaddr.l.google.com', method: 'DNS TXT (UDP 53)', via: 'dns-udp', status: 'success', ip: '198.51.100.11', family: 'ipv4', durationMs: 25 },
+        { id: 'dns-google-google-authoritative', source: 'google-authoritative', target: 'Google DNS (8.8.8.8)', targetHost: 'o-o.myaddr.l.google.com', method: 'DNS TXT (UDP 53)', via: 'dns-udp', status: 'success', ip: '198.51.100.12', family: 'ipv4', durationMs: 90 },
+        { id: 'dns-cloudflare-akamai-authoritative', source: 'akamai-authoritative', target: 'Cloudflare DNS (1.1.1.1)', targetHost: 'whoami.ds.akahelp.net', method: 'DNS TXT (UDP 53)', via: 'dns-udp', status: 'timeout', error: '（Demo 样例）DNS 查询超时（9000ms）', durationMs: 9000 },
+        { id: 'dns-dnspod-akamai-authoritative', source: 'akamai-authoritative', target: 'DNSPod (119.29.29.29)', targetHost: 'whoami.ds.akahelp.net', method: 'DNS TXT (UDP 53)', via: 'dns-udp', status: 'unsupported', error: '（Demo 样例）该网络未提供 IPv6 递归观测条件' }
+      ]
+    }
+  ]
+}
+
+function demoDiagSummary(run: DiagRun): DiagRunSummary {
+  const probes: DiagRunSummary['probes'] = { publicIp: [], splitTunnel: [], cdnNode: [], dnsExit: [] }
+  const sources = new Set<string>()
+  let ok = 0
+  let total = 0
+  for (const m of run.modules) {
+    for (const p of m.probes) {
+      total += 1
+      if (p.status === 'success') ok += 1
+      sources.add(p.source)
+      probes[m.id].push({
+        id: p.id, source: p.source, target: p.target, method: p.method, via: p.via,
+        status: p.status, ip: p.ip, family: p.family, node: p.node, cdn: p.cdn,
+        httpStatus: p.httpStatus, durationMs: p.durationMs, error: p.error
+      })
+    }
+  }
+  return {
+    runId: run.runId, startedAt: run.startedAt, finishedAt: run.finishedAt,
+    status: run.status, origin: run.origin,
+    moduleStatus: Object.fromEntries(run.modules.map((m) => [m.id, m.status])),
+    probes,
+    stats: { sources: sources.size, probes: total, ok }
+  }
+}
+
+let history: HistoryRecord[] = demoHistory()
+
+let diagRun: DiagRun | null = null
+let diagStopped = false
 
 function deepMerge(base: AppSettings, patch: Record<string, unknown>): AppSettings {
   const out: Record<string, unknown> = { ...base }
@@ -365,13 +495,61 @@ export function install(): void {
       await sleep(900)
       return { ok: true, results: REACH }
     },
+    // Demo 出口诊断：模拟进度事件流（含一次中途可取消），数据显著标注样例
+    startDiag: async (req: { modules: string[]; origin: string }) => {
+      diagRun = null
+      diagStopped = false
+      const run: DiagRun = {
+        ...JSON.parse(JSON.stringify(DEMO_DIAG_RUN)),
+        runId: `diag-demo-${Date.now().toString(36)}`,
+        startedAt: nowIso(),
+        modules: DEMO_DIAG_RUN.modules.filter((m) => req.modules.includes(m.id))
+      }
+      diagRun = { ...run, status: 'running', modules: run.modules.map((m) => ({ ...m, probes: [] })) }
+      ;(async () => {
+        for (const m of run.modules) {
+          for (const p of m.probes) {
+            if (diagStopped) return
+            diagRun?.modules.find((x) => x.id === m.id)?.probes.push(p)
+            diagListeners.forEach((l) =>
+              l({ runId: diagRun!.runId, moduleId: m.id, probeId: p.id, status: p.status })
+            )
+            await sleep(240)
+          }
+          diagListeners.forEach((l) => l({ runId: diagRun!.runId, moduleId: m.id, status: m.status }))
+        }
+        if (diagRun && !diagStopped) {
+          diagRun.status = 'partial'
+          diagRun.finishedAt = nowIso()
+        }
+      })()
+      return { ok: true, runId: diagRun!.runId }
+    },
+    stopDiag: async () => {
+      diagStopped = true
+      if (diagRun && diagRun.status === 'running') {
+        diagRun.status = 'canceled'
+        diagRun.finishedAt = nowIso()
+        diagListeners.forEach((l) => l({ runId: diagRun!.runId, moduleId: 'publicIp', status: 'canceled' }))
+      }
+      return { ok: true }
+    },
+    latestDiag: async () => ({
+      ok: true,
+      run: diagRun,
+      summary: diagRun ? demoDiagSummary(diagRun) : null
+    }),
+    onDiagEvent: (cb: (e: DiagEvent) => void) => {
+      diagListeners.add(cb)
+      return () => diagListeners.delete(cb)
+    },
     getSettings: async () => ({ ok: true, settings }),
     setSettings: async (patch: Partial<AppSettings>) => {
       settings = deepMerge(settings, patch as Record<string, unknown>)
       return { ok: true, settings }
     },
     resetSettings: async () => ({ ok: true, settings }),
-    appVersion: async () => '0.1.0-demo',
+    appVersion: async () => '0.2.2-demo',
     testAi: async () => {
       await sleep(600)
       return { ok: true, ms: 612, reply: '收到' }
@@ -446,7 +624,7 @@ export function install(): void {
     },
     // Demo 模式无真实更新通道：给出明确状态，不转圈
     checkForUpdates: async () => {
-      updateListeners.forEach((l) => l({ state: 'up-to-date', version: '0.2.0-demo' }))
+      updateListeners.forEach((l) => l({ state: 'up-to-date', version: '0.2.2-demo' }))
       return { ok: true }
     },
     quitAndInstall: async () => ({ ok: true }),

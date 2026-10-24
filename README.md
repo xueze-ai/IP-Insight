@@ -9,7 +9,7 @@
 [简体中文](README.md) · [English](README_EN.md)
 
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-0.1.0-green.svg)
+![Version](https://img.shields.io/badge/version-0.2.2-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey.svg)
 ![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)
 
@@ -44,12 +44,13 @@
 ### 亮点
 
 - 🌐 **四源聚合**：Ping0、Net.Coffee、Net.Coffee GPT、IPPure，单源失败互不影响
+- 🚦 **网络出口诊断（0.2.2 新增）**：本机公网 IP 多观测点、网站分流测试、CDN 命中节点、DNS 出口查询——四张摘要卡 + 可展开明细与原始证据，关键结果先看懂、专业依据查得到（详见 [docs/exit-diagnostics-data-sources.md](docs/exit-diagnostics-data-sources.md)）
 - 🔎 **多源交叉验证**：一致打 ✓、冲突标 ⚠ 并逐源列出，**不替你做单一结论**
-- 🧠 **AI 综合分析**：通义千问 / DeepSeek / 豆包 / OpenAI / **Ollama 本地** / 智谱 / Moonshot / 硅基流动 / 自定义，流式输出、截断自动续写
+- 🧠 **AI 综合分析**：通义千问 / DeepSeek / 豆包 / OpenAI / **Ollama 本地** / 智谱 / Moonshot / 硅基流动 / 自定义，流式输出、截断自动续写；报告按「能确认 / 值得注意 / 不能确认 / 下一步」组织
 - ⚡ **本机实测**：Cloudflare 官方引擎测速、20 节点全球延迟、31 个主流服务可用性、10 站点可达性（隐藏浏览器真实网络栈）
 - 🖐 **浏览器指纹**：Canvas / WebGL / 音频 / 字体 / 综合指纹 ID + 时区一致性 + DNS / WebRTC 泄露
-- 🗂 **历史记录与报告导出**：HTML / PDF / JSON / TXT，落款可署名
-- 🎨 **Material 3 风格桌面 UI**：浅色 / 深色 / 跟随系统，简体中文界面
+- 🗂 **历史记录与报告导出**：HTML / PDF / JSON / TXT，落款可署名；历史保留失败与部分成功来源，出口诊断随快照保存
+- 🎨 **Material 3 风格桌面 UI**：浅色 / 深色 / 跟随系统，中英双语；专业术语配通俗解释（「这是什么意思」入口）
 - 🧪 **Demo 模式**：浏览器直接预览全部界面（样例数据），开源透明
 
 ## 工作原理
@@ -162,6 +163,7 @@ Ollama 用户：本机 `ollama serve` 并 `ollama pull qwen2.5:7b` 后，选择 
 │  │  ├─ history.ts          # 历史持久化
 │  │  ├─ exportReport.ts     # HTML/PDF/JSON/TXT 报告
 │  │  ├─ ai/                 # SSE 流式客户端 / 分析提示词
+│  │  ├─ diag/               # 网络出口诊断（0.2.2）：targets / probes / textparse / orchestrator
 │  │  └─ providers/          # 每站点一个 Adapter + 隐藏浏览器底座
 │  │     ├─ base/ ping0/ netcoffee/ netcoffee-gpt/ ippure/
 │  │     ├─ speedtest/       # Cloudflare 官方引擎测速
@@ -169,13 +171,14 @@ Ollama 用户：本机 `ollama serve` 并 `ollama pull qwen2.5:7b` 后，选择 
 │  ├─ preload/               # contextBridge 最小 API 面
 │  ├─ renderer/              # React UI（Material 3 设计系统）
 │  │  ├─ src/pages/          # 九个页面
+│  │  ├─ src/components/     # MultiSource / ExitDiag / ExportDialog / Markdown
 │  │  ├─ src/demo/mock.ts    # 浏览器 Demo 模式样例 API
-│  │  ├─ src/state/          # DetectionContext / speedtest / ai / nav stores
+│  │  ├─ src/state/          # DetectionContext / diag / speedtest / ai / nav stores
 │  │  └─ src/utils/          # 多源共识 / 报告模型
-│  └─ shared/                # 统一数据模型 / AI 提供商元数据
+│  └─ shared/                # 统一数据模型 / 出口诊断模型 / API 类型 / AI 提供商元数据
 ├─ resources/Logo.png        # 应用图标
-├─ docs/images/              # 效果预览截图
-└─ scripts/                  # 打包收尾脚本
+├─ docs/                     # 数据源说明 / 代码签名 / 截图
+└─ scripts/                  # 打包收尾 / 单元测试（textparse）
 ```
 
 ## 贡献
@@ -194,6 +197,21 @@ Ollama 用户：本机 `ollama serve` 并 `ollama pull qwen2.5:7b` 后，选择 
 分发或二次发布时请同时保留软件内「关于」页的作者与仓库信息。
 
 ## 更新日志
+
+### 0.2.2
+
+- **网络出口诊断**（网络质量页新分组，四张摘要卡 + 明细 + 一键诊断 / 停止 / 分模块重看）：
+  - 本机公网 IP：Cloudflare 多观测点 trace + Sukka 页面流程（遇验证页如实上报，不绕过）
+  - 网站分流测试：ChatGPT / Claude / OpenAI API / Discord / GitLab 等官方诊断端点回显出口，国内目标仅可达性（不伪造出口）
+  - CDN 命中节点：Cloudflare / Fastly / CloudFront / Bunny / CDN77 / CacheFly / OVH 等 11 个公开端点，节点代码保留原文、不推断城市、无证据不显示 HIT/MISS
+  - DNS 出口查询：本机 UDP 直连 6 组解析器 × Google / Akamai 官方诊断 TXT 区，多递归出口完整保留；与 HTTP 出口不同不判泄露
+  - 综合检测默认附带轻量公网出口查询（设置可关）；runId 批次隔离，停止 / 重跑 / 载入历史互不污染
+- **专业数据更好懂**：三层表达（关键结果 → 简明解释 → 展开依据）；Dashboard 新增「这些字段是什么意思」；ISP / ASN / VPN / 代理 / 原生性等术语配通俗解释；「检测源标记」口径替代「你正在使用 XX」式表述
+- **判定与状态修复**：「未检测到泄露」不再标红（结构化 verdict，兼容旧历史）；未测试 / 取消 / 不支持显示中性状态；主出口按「覆盖源最多 → 源顺序」稳定选取，不再随请求返回顺序漂移；「4 源」写死改为动态计数
+- **历史与导出**：历史保留失败与部分成功来源；出口诊断随快照保存；旧记录显示「未包含出口诊断」；四种导出格式均含出口诊断摘要与探测项明细（PDF 长 IPv6 不溢出）；AI 收到有界出口诊断事实行且提示词约束「分流差异 / DNS 出口不同不判异常、端点可达 ≠ 服务解锁」
+- 场景询问同样发送瘦身载荷；AI 未配置时全部诊断可用
+- Demo 覆盖正常 / 多出口 / IPv6 未测得 / 部分失败形态；真实失败不回退 Demo
+- 新增 [docs/exit-diagnostics-data-sources.md](docs/exit-diagnostics-data-sources.md) 数据源接入说明（端点、测量方式、字段含义、核验时间、已知限制）；更新隐私政策
 
 ### 0.2.1
 

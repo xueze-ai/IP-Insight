@@ -72,7 +72,9 @@ export const zhSettings = {
     autoRunTitle: '启动时自动综合检测',
     autoRunDesc: '打开软件后自动开始一次综合检测。',
     parallelTitle: '并行检测',
-    parallelDesc: '四个数据源同时检测（约最快单源耗时）；关闭则依次检测（过程更直观）。'
+    parallelDesc: '各数据源同时检测（约最慢单源耗时）；关闭则依次检测（过程更直观）。',
+    lightExitTitle: '综合检测附带出口诊断（轻量）',
+    lightExitDesc: '综合检测时并行执行一次轻量公网出口查询（Cloudflare 诊断端点，2 个请求）；可在「网络质量」页运行完整出口诊断。关闭后仅手动运行。'
   },
   privacy: {
     historyTitle: '保存历史记录',

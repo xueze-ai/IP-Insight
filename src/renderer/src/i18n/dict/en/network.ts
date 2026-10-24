@@ -3,7 +3,13 @@ import type { zhNetwork } from '../zh/network'
 export const enNetwork: typeof zhNetwork = {
   kicker: 'Network Quality · Local measurements + global nodes',
   intro:
-    'Download / Upload / Ping / Jitter are measured by the built-in official Cloudflare speed test engine in a hidden window; global node latency is provided by Net.Coffee; service availability aggregates each service’s official status page.',
+    'Download / Upload / Ping / Jitter are measured by the built-in official Cloudflare speed test engine in a hidden window; global node latency is provided by Net.Coffee; service availability aggregates each service’s official status page. Exit diagnostics (public IP / split tunneling / CDN node / DNS exit) sit at the bottom of this page.',
+  anchor: {
+    speed: 'Speed test',
+    ping: 'Global nodes',
+    svc: 'Service status',
+    reach: 'Reachability'
+  },
   idleDesc:
     'The speed test runs the official Cloudflare measurement engine in a hidden window in the background, taking about 1–2 minutes (faster connections take longer). You can keep using other pages during the test; results stay on this page. Packet loss relies on WebRTC TURN relay and shows “Not measured” when unreachable from the current network.',
   startSpeedtest: 'Start speed test',
@@ -27,12 +33,12 @@ export const enNetwork: typeof zhNetwork = {
   downloadLabel: 'Download',
   uploadLabel: 'Upload',
   kv: {
-    ping: 'Idle ping',
-    jitter: 'Idle jitter',
-    loadedPingDown: 'Loaded ping / jitter (download)',
-    loadedPingUp: 'Loaded ping / jitter (upload)',
+    ping: 'Latency (idle)',
+    jitter: 'Jitter (idle)',
+    loadedPingDown: 'Latency / jitter under download load',
+    loadedPingUp: 'Latency / jitter under upload load',
     loss: 'Packet loss',
-    lossTitle: 'Requires WebRTC TURN relay; unavailable when unreachable from the current network',
+    lossTitle: 'Packet loss means "some data failed to arrive". Requires WebRTC TURN relay; shows "Not measured" — never 0 — when unreachable from this network',
     exitIp: 'Speed test egress IP',
     exitIpDetail: '({colo}{suffix})',
     exitIpSep: ' · {loc}',

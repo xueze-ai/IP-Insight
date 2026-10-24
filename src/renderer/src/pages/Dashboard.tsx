@@ -13,11 +13,13 @@ import type { JSX, ReactNode } from 'react'
 import type { NormalizedIPResult } from '@shared/types'
 import { type SourceStep, type StepStatus } from '../hooks/useDetection'
 import { useDetectionContext } from '../state/DetectionContext'
+import { requestNav } from '../state/navStore'
 import { MultiSource } from '../components/MultiSource'
 import { ExportDialog } from '../components/ExportDialog'
 import { buildReportModel } from '../utils/report'
-import { flagConsensus, successfulResults, TRI_VIEW } from '../utils/aggregate'
+import { flagConsensus, leakBadgeCls, leakBadgeState, successfulResults, TRI_VIEW } from '../utils/aggregate'
 import { useLang } from '../i18n'
+import type { TKey } from '../i18n'
 
 function byKey(steps: SourceStep[], key: string): NormalizedIPResult | undefined {
   return steps.find((s) => s.key === key)?.result
@@ -80,13 +82,17 @@ export function Dashboard(): JSX.Element {
     steps,
     currentIp,
     successCount,
-    run,
+    totalCount,
+    diag,
+    viewSource,
     startedAt,
+    run,
     finishedAt,
     aiReport
   } = useDetectionContext()
   const [expanded, setExpanded] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [explain, setExplain] = useState(false)
   const { t } = useLang()
 
   // 设置联动：启动时自动综合检测（仅空闲态触发一次）
@@ -173,21 +179,34 @@ export function Dashboard(): JSX.Element {
   ) as string[]
 
   const hasConflict = [vpn, proxy, tor].includes('conflict')
-  const hasLeak =
-    (dnsStatus ?? '').includes('泄露') || (webrtcStatus ?? '').includes('泄露')
+  const dnsBadge = leakBadgeState(gpt?.dnsLeak)
+  const webrtcBadge = leakBadgeState(gpt?.webRTCLeak)
+  const hasLeak = dnsBadge === 'leak' || webrtcBadge === 'leak'
 
   const loc = [p0?.country, p0?.region, p0?.city].filter(Boolean).join(' · ')
+
+  // 轻量出口诊断（Sukka 模块 publicIp）摘要
+  const diagProbes = diag?.probes?.publicIp ?? []
+  const diagIps = [...new Set(diagProbes.filter((p) => p.status === 'success' && p.ip).map((p) => p.ip as string))]
+  const diagFailed = diagProbes.filter((p) => p.status === 'failed' || p.status === 'timeout').length
 
   return (
     <div className="page" style={{ paddingTop: 40 }}>
       <span className="dash-kicker">
-        {t('dashboard.doneKicker', { ok: successCount })}
+        {t('dashboard.doneKicker', { ok: successCount, total: totalCount })}
       </span>
+      {viewSource === 'history' && startedAt && (
+        <div style={{ marginTop: 10 }}>
+          <span className="badge badge-info">
+            {t('history.viewSourceHistory', { time: new Date(startedAt).toLocaleString() })}
+          </span>
+        </div>
+      )}
       <div
         className="mono"
         style={{ marginTop: 10, fontSize: 28, fontWeight: 600, letterSpacing: '-0.3px' }}
       >
-        {currentIp}
+        {currentIp ?? '—'}
       </div>
       <div className="muted small" style={{ marginTop: 8 }}>
         {p0?.isp} · {p0?.asn}
@@ -196,6 +215,38 @@ export function Dashboard(): JSX.Element {
         {loc}
         {gpt?.ip ? t('dashboard.chatgptExit', { ip: gpt.ip, country: gpt.country ?? '' }) : ''}
       </div>
+
+      {/* 轻量出口诊断摘要：来自多个观测点，多出口并排展示，不做风险推断 */}
+      {diag && diagProbes.length > 0 && (
+        <div
+          className="card card-subtle"
+          style={{ marginTop: 20, padding: '14px 18px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}
+        >
+          <span className="badge badge-info">{t('dashboard.diagBadge')}</span>
+          {diagIps.length > 0 ? (
+            <span className="small">
+              {t('dashboard.diagExits', { ips: diagIps.slice(0, 3).join(' / ') })}
+            </span>
+          ) : (
+            <span className="small">{t('dashboard.diagNone')}</span>
+          )}
+          {diagFailed > 0 && (
+            <span className="caption">{t('dashboard.diagFailed', { n: diagFailed })}</span>
+          )}
+          <span className="caption" style={{ marginLeft: 'auto' }}>
+            <a
+              className="diag-anchor"
+              href="#network"
+              onClick={(e) => {
+                e.preventDefault()
+                requestNav('networkQuality')
+              }}
+            >
+              {t('dashboard.diagMore')}
+            </a>
+          </span>
+        </div>
+      )}
 
       {(hasConflict || hasLeak) && (
         <div
@@ -222,13 +273,38 @@ export function Dashboard(): JSX.Element {
           />
           <KV
             k={t('dashboard.row.dnsLeak')}
-            v={dnsStatus ? <span className={'badge ' + (dnsStatus.includes('泄露') ? 'badge-bad' : 'badge-good')}>{dnsStatus}</span> : '—'}
+            v={dnsStatus ? <span className={'badge ' + leakBadgeCls(dnsBadge)}>{dnsStatus}</span> : '—'}
           />
           <KV
             k={t('dashboard.row.webrtcLeak')}
-            v={webrtcStatus ? <span className={'badge ' + (webrtcStatus.includes('泄露') ? 'badge-bad' : 'badge-good')}>{webrtcStatus}</span> : '—'}
+            v={webrtcStatus ? <span className={'badge ' + leakBadgeCls(webrtcBadge)}>{webrtcStatus}</span> : '—'}
           />
         </div>
+      </div>
+
+      {/* 「这是什么意思」：简明解释（可点击/键盘访问），不影响布局 */}
+      <div style={{ marginTop: 10 }}>
+        <button className="btn btn-text btn-sm" onClick={() => setExplain((v) => !v)} aria-expanded={explain}>
+          {explain ? t('dashboard.explain.hide') : t('dashboard.explain.show')}
+        </button>
+        {explain && (
+          <div className="card card-subtle card-pad-sm" style={{ marginTop: 8 }}>
+            {(
+              [
+                'dashboard.explain.isp',
+                'dashboard.explain.asn',
+                'dashboard.explain.vpnProxy',
+                'dashboard.explain.native',
+                'dashboard.explain.leak',
+                'dashboard.explain.diag'
+              ] as TKey[]
+            ).map((k) => (
+              <p key={k} className="caption" style={{ lineHeight: 1.8 }}>
+                {t(k)}
+              </p>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={{ marginTop: 26, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -253,14 +329,17 @@ export function Dashboard(): JSX.Element {
             startedAt,
             finishedAt,
             currentIp,
-            results: successfulResults(steps),
+            results: steps
+              .map((s) => s.result)
+              .filter((r): r is NormalizedIPResult => !!r),
             sources: steps.map((s) => ({
               name: s.name,
               ok: s.status === 'ok',
               error: s.result?.error,
               durationMs: s.durationMs
             })),
-            aiReport
+            aiReport,
+            diag
           })}
           onClose={() => setExportOpen(false)}
         />

@@ -28,13 +28,19 @@ export interface ExitGroups {
   others: { ip: string; rs: NormalizedIPResult[] }[]
 }
 
-// 主出口 = 覆盖源最多的 IP（并列时按传入顺序，含 Ping0 的优先）
+// 主出口 = 覆盖源最多的 IP；并列时按源声明顺序（ping0 优先），结果与请求返回顺序无关
+const PROVIDER_ORDER = ['ping0', 'netcoffee', 'netcoffee_gpt', 'ippure', 'local_speedtest']
 export function exitGroups(results: NormalizedIPResult[]): ExitGroups {
   const groups = [...groupByIp(results).entries()].map(([ip, rs]) => ({
     ip,
     rs
   }))
-  groups.sort((a, b) => b.rs.length - a.rs.length)
+  groups.sort((a, b) => {
+    if (b.rs.length !== a.rs.length) return b.rs.length - a.rs.length
+    const oa = Math.min(...a.rs.map((r) => Math.max(0, PROVIDER_ORDER.indexOf(r.provider.id))))
+    const ob = Math.min(...b.rs.map((r) => Math.max(0, PROVIDER_ORDER.indexOf(r.provider.id))))
+    return oa - ob
+  })
   return { main: groups[0], others: groups.slice(1) }
 }
 
@@ -42,6 +48,29 @@ export interface FieldAggregate<T = string> {
   state: 'agree' | 'conflict' | 'nodata'
   value?: T
   perSource: { source: string; value: T | null | undefined }[]
+}
+
+// ------------ 泄露判定（结构化 verdict，不做字符串包含匹配） ------------
+export type LeakBadgeState = 'leak' | 'clean' | 'neutral'
+
+/** 显示语义：leak=警示；clean=正常；untested/unknown/缺失=中性 */
+export function leakBadgeState(info?: { verdict?: string; status?: string }): LeakBadgeState {
+  if (!info) return 'neutral'
+  if (info.verdict === 'leak') return 'leak'
+  if (info.verdict === 'clean') return 'clean'
+  // 兼容 0.2.1 旧历史（无 verdict 字段）：仅当原文明确以「未」开头/含「无」时按正常，
+  // 其余（未知/未检测/无法判断）一律中性，不再把「未检测到泄露」标红或误判。
+  const s = (info.status ?? '').trim()
+  if (!s) return 'neutral'
+  if (/未泄露|未检测到泄露|未发现泄露|no leak/i.test(s)) return 'clean'
+  if (/泄露|leak/i.test(s)) return 'leak'
+  return 'neutral'
+}
+
+export function leakBadgeCls(state: LeakBadgeState): string {
+  if (state === 'leak') return 'badge-bad'
+  if (state === 'clean') return 'badge-good'
+  return 'badge-neutral'
 }
 
 // ------------ 多源布尔标签共识（VPN / Proxy / Tor / Crawler …） ------------

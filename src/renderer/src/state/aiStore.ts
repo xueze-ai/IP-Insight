@@ -50,7 +50,8 @@ export function subscribeAi(cb: () => void): () => void {
 
 export function startAnalysis(
   results: Parameters<typeof window.ipInsight.analyzeAi>[0]['results'],
-  consistency: string
+  consistency: string,
+  diagLines?: string[]
 ): Promise<AiAnalyzeResponse> {
   if (running) return Promise.resolve({ ok: false, error: tt('misc.ai.alreadyRunning') })
   running = true
@@ -75,7 +76,7 @@ export function startAnalysis(
   }
   const t0 = Date.now()
   return window.ipInsight
-    .analyzeAi({ results, consistency })
+    .analyzeAi({ results, consistency, diagLines })
     .then((res: AiAnalyzeResponse) => {
       running = false
       if (res.ok && res.text) {

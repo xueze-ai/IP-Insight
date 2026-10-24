@@ -1,10 +1,10 @@
 export const zhMisc = {
   tri: {
-    found: '发现',
-    clear: '未发现',
-    conflict: '多源存在分歧',
-    unknown: '无法判断',
-    nodata: '无数据'
+    found: '有来源标记',
+    clear: '未见来源标记',
+    conflict: '来源判断不一致',
+    unknown: '来源无法判断',
+    nodata: '无来源数据'
   },
   flagText: {
     hit: '命中',
@@ -90,6 +90,12 @@ export const zhMisc = {
       webrtcLeak: 'WebRTC 泄露',
       blacklist: 'DNSBL 黑名单',
       blacklistValue: '{listed} / {checked} 家命中'
+    },
+    diag: {
+      observedEgress: '观测到的出口',
+      nodes: '命中节点',
+      failedProbes: '失败 / 超时项',
+      probeStats: '探测项'
     }
   },
   speedtest: {

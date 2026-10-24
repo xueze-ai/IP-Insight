@@ -115,7 +115,7 @@ const AGG_EXPR = `
       if (d && d.dns_servers && d.dns_servers.length) { servers = d.dns_servers; break; }
       await new Promise (function (r) { setTimeout(r, 1300); });
     }
-    if (!servers.length) return { status: 'DNS 加密或未暴露出口', servers: [] };
+    if (!servers.length) return { status: 'DNS 加密或未暴露出口', verdict: 'unknown', servers: [] };
     const cc0 = String((gptRisk && (gptRisk.countryCode || gptRisk.country)) ||
       (gptGeo && gptGeo.country_code) || '').toLowerCase();
     const gptCN = /china|cn|中国/.test(cc0);
@@ -128,6 +128,7 @@ const AGG_EXPR = `
       if (!show) show = { ip: ip, cc: cc, isp: isp };
     }
     return { status: leaked ? '可能泄露' : '未检测到泄露',
+      verdict: leaked ? 'leak' : 'clean',
       exitIp: show && show.ip, isp: show && show.isp,
       cc: show && show.cc, servers: servers };
   }
@@ -161,8 +162,8 @@ const AGG_EXPR = `
       return !isV6(ip) &&
         !/^(192\\.168\\.|10\\.|172\\.|198\\.18\\.|198\\.19\\.|100\\.64\\.|127\\.|0\\.)/.test(ip);
     });
-    if (!all.length) return { status: 'WebRTC 已禁用或无泄露', ips: [] };
-    if (!pub.length) return { status: '未检测到泄露', ips: all };
+    if (!all.length) return { status: 'WebRTC 已禁用或无候选地址', verdict: 'unknown', ips: [] };
+    if (!pub.length) return { status: '未检测到泄露', verdict: 'clean', ips: all };
     let leak = false, showIP = null;
     for (const ip of pub) {
       if (gptIp && ip !== gptIp) { leak = true; showIP = ip; break; }
@@ -170,6 +171,7 @@ const AGG_EXPR = `
     }
     const geo = showIP ? await jget('/api/geoip/' + showIP, 4000) : null;
     return { status: leak ? '可能泄露' : '未检测到泄露',
+      verdict: leak ? 'leak' : 'clean',
       exitIp: showIP, country: geo && geo.country,
       cc: geo && geo.country_code, matches: !leak, ips: all };
   }

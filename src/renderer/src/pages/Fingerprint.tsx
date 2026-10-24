@@ -44,14 +44,24 @@ function Group({
 function LeakBadge({
   leak
 }: {
-  leak?: { status: string; exitIp?: string; country?: string }
+  leak?: { status: string; verdict?: string; exitIp?: string; country?: string }
 }): JSX.Element {
   const { t } = useLang()
   if (!leak || !leak.status)
     return <span className="badge badge-neutral">{t('fingerprint.leakNotChecked')}</span>
-  const bad = leak.status.includes('泄露')
+  // 结构化判定（兼容旧历史）：有证据的泄露→警示；明确未泄露→正常；未知/未检测→中性
+  const state = leak.verdict === 'leak'
+    ? 'leak'
+    : leak.verdict === 'clean'
+      ? 'clean'
+      : /未泄露|未检测到泄露|no leak/i.test(leak.status)
+        ? 'clean'
+        : /泄露/i.test(leak.status)
+          ? 'leak'
+          : 'neutral'
+  const cls = state === 'leak' ? 'badge-bad' : state === 'clean' ? 'badge-good' : 'badge-neutral'
   return (
-    <span className={'badge ' + (bad ? 'badge-bad' : 'badge-good')} title={leak.exitIp}>
+    <span className={'badge ' + cls} title={leak.exitIp}>
       {leak.status}
       {leak.exitIp ? ` · ${leak.exitIp}` : ''}
     </span>

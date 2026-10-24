@@ -12,6 +12,7 @@ import {
   startSpeedtest,
   subscribeSpeedtest
 } from '../state/speedtestStore'
+import { ExitDiagPanel } from '../components/ExitDiag'
 import { tt, useLang } from '../i18n'
 import type { TKey } from '../i18n'
 
@@ -228,6 +229,33 @@ export function NetworkQuality(): JSX.Element {
         {t('network.intro')}
       </p>
 
+      {/* 轻量分区定位：快速到达各模块，不新增嵌套导航 */}
+      <div className="diag-anchor-bar" style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        {(
+          [
+            ['network.anchor.speed', 'speed'],
+            ['network.anchor.ping', 'ping'],
+            ['network.anchor.svc', 'svc'],
+            ['network.anchor.reach', 'reach'],
+            ['diag.title', 'exit-diag']
+          ] as [TKey, string][]
+        ).map(([label, anchor]) => (
+          <a
+            key={anchor}
+            className="diag-anchor caption"
+            href={`#${anchor}`}
+            onClick={(e) => {
+              e.preventDefault()
+              document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }}
+          >
+            {t(label)}
+          </a>
+        ))}
+      </div>
+
+      {/* ---------- 测速 ---------- */}
+      <div id="speed" />
       {speed.status === 'idle' && (
         <div
           className="card card-subtle"
@@ -431,7 +459,7 @@ export function NetworkQuality(): JSX.Element {
       )}
 
       {/* ---------- 全球节点延迟 ---------- */}
-      <div className="card" style={{ marginTop: 28 }}>
+      <div className="card" style={{ marginTop: 28 }} id="ping">
         <div className="card-head" style={{ marginBottom: 6 }}>
           <div className="card-eyebrow">{t('network.ping.title')}</div>
           {gp.length > 0 && (
@@ -495,7 +523,7 @@ export function NetworkQuality(): JSX.Element {
       </div>
 
       {/* ---------- 服务可用性 ---------- */}
-      <div className="card" style={{ marginTop: 28 }}>
+      <div className="card" style={{ marginTop: 28 }} id="svc">
         <div className="card-head" style={{ marginBottom: 12 }}>
           <div className="card-eyebrow">{t('network.svc.title')}</div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -565,7 +593,7 @@ export function NetworkQuality(): JSX.Element {
       </div>
 
       {/* ---------- 本机可达性 ---------- */}
-      <div className="card" style={{ marginTop: 28 }}>
+      <div className="card" style={{ marginTop: 28 }} id="reach">
         <div className="card-head" style={{ marginBottom: 12 }}>
           <div className="card-eyebrow">{t('network.reach.title')}</div>
           <button
@@ -616,6 +644,9 @@ export function NetworkQuality(): JSX.Element {
           {t('network.reach.note')}
         </p>
       </div>
+
+      {/* ---------- 网络出口诊断（本机公网 IP / 网站分流 / CDN 节点 / DNS 出口） ---------- */}
+      <ExitDiagPanel />
     </div>
   )
 }

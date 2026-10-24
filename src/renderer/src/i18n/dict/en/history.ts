@@ -4,7 +4,7 @@ export const enHistory: typeof zhHistory = {
   kicker: 'History · Saved locally',
   clearAll: 'Clear all',
   confirmClear: 'Clear all history records? This cannot be undone.',
-  desc: 'Automatically saved locally after each full detection (time / IP / data sources / full results). Retention days and the on/off switch are configured under "Settings → Data & Privacy".',
+  desc: 'Automatically saved locally after each full detection (time / IP / data sources / full results, including failed and partial sources). Retention days and the on/off switch are configured under "Settings → Data & Privacy".',
   disabled: 'History is off',
   disabledDesc: 'New detections will no longer be written to history; below are records saved before it was turned off.',
   goEnable: 'Enable in Settings',
@@ -19,7 +19,13 @@ export const enHistory: typeof zhHistory = {
   fail: 'Failed',
   detectTime: 'Detected: ',
   riskValue: ' · normalized risk {v}/100',
+  diagTitle: 'This record contains structured exit diagnostics',
+  diagYes: 'with exit diagnostics',
+  diagNo: 'This record has no exit diagnostics (older version; not re-measured)',
+  diagStats: 'Exit diagnostics {ok}/{total} probes OK · {sources} sources',
   loadPage: 'Load into analysis pages',
   exportReport: 'Export report',
-  confirmDelete: 'Delete this history record?'
+  confirmDelete: 'Delete this history record?',
+  viewSourceLive: 'Viewing: live detection results of this run',
+  viewSourceHistory: 'Viewing: history record ({time}) · unrelated to the current network'
 }
