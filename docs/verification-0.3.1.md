@@ -24,8 +24,8 @@
 | 概览标签 | 读完 157 项 | 一句话结论、暴露等级 C、地址与网络 / 设备与环境两栏、指纹稳定性 7/7、OpenRTB 预览均正常渲染（`docs/images/14-whoami-overview.png`） |
 | 全部探测项 | 切标签 | 分组计数 28+8+15+28+47+27+4=157；实测值正常（出口 IP 14.103.216.78、AS137718、坐标、时区、IP 类型等），读不到的项显示「本次读不到」并给原因（`15-whoami-probes.png`） |
 | 伪装检测 | 切标签 | 冲突条目按证据分级；目标地区模拟（香港）显示 5 项中 2 项对得上，逐项给改法（`16-whoami-disguise.png`） |
-| 网络诊断 | 点「运行诊断」 | 8 项全部返回：本机地址 / DNS 服务器 / 域名解析 37 ms ×3 / Cloudflare 39 ms / GitHub 35 ms / 百度 35 ms / HTTP 延迟 417·210·213 ms / MTU 缺 netsh（Linux 预期）（`17-whoami-diagnose.png`） |
-| CDN 雷达 | 点「开始探测」 | 10 个端点并发返回；Cloudflare 命中 LAX 297 ms 成功；其余因容器证书被替换返回失败并标注（`18-whoami-radar.png`） |
+| 网络诊断 | 点「运行诊断」 | 8 项全部返回：本机地址 / DNS 服务器 / 域名解析 37 ms ×3 / Cloudflare 39 ms / GitHub 35 ms / 百度 35 ms / HTTP 延迟 239·433·219 ms / MTU 显示「这台机器没有 netsh（网卡 MTU 仅 Windows 支持）」（`17-whoami-diagnose.png`） |
+| CDN 雷达 | 点「开始探测」 | 10 个端点并发返回；Cloudflare 命中 LAX 297 ms 成功；其余因容器证书被替换返回「失败」并悬浮给出原因（`18-whoami-radar.png`） |
 | 路由追踪 | 点「开始追踪」 | Linux 无 `tracert` → 界面显示「spawn tracert ENOENT」，未崩溃、未卡住（错误如实呈现） |
 | 深色主题 | 顶部主题按钮切换 | 页面、卡片、表格、状态点对比度正常，无残留白底 |
 | 加载态 | 进入页面立即截图 | 概览在读数完成前显示加载占位，不再提前给出错误等级或空值结论 |
