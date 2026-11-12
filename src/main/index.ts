@@ -9,6 +9,9 @@ import { ippureAdapter } from './providers/ippure/IPPureAdapter'
 import { speedtestAdapter } from './providers/speedtest/SpeedtestAdapter'
 import { fetchServiceStatus } from './providers/netcoffee/serviceStatus'
 import { probeReachability } from './providers/localprobe/reachability'
+import { collectServer } from './whoami/serverProbe'
+import { cdnRadar, diagnose, traceroute } from './whoami/tools'
+import type { WhoServerRequest } from '@shared/whoami'
 import {
   latestRun,
   onDiagEvent,
@@ -1025,6 +1028,66 @@ app.whenReady().then(async () => {
       return { ok: true, results: await probeReachability() }
     } catch (e) {
       return { ok: false, error: (e as Error).message }
+    }
+  })
+
+  // ------------ 网站眼里的你（服务器侧读数） ------------
+  ipcMain.handle('whoami:server', async (_event, req: WhoServerRequest) => {
+    try {
+      return await collectServer(req && typeof req === 'object' ? req : {})
+    } catch (e) {
+      return {
+        ok: false,
+        collectedAt: new Date().toISOString(),
+        items: [],
+        facts: { dns: [], dnsServers: [], egress: [] },
+        error: (e as Error).message
+      }
+    }
+  })
+
+  // ------------ 网络工具箱（真实测量） ------------
+  ipcMain.handle('net:traceroute', async (_event, target: string) => {
+    try {
+      return await traceroute(target)
+    } catch (e) {
+      return {
+        ok: false,
+        target: String(target ?? ''),
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        durationMs: 0,
+        hops: [],
+        error: (e as Error).message
+      }
+    }
+  })
+  ipcMain.handle('net:diagnose', async () => {
+    try {
+      return await diagnose()
+    } catch (e) {
+      return {
+        ok: false,
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        durationMs: 0,
+        checks: [],
+        error: (e as Error).message
+      }
+    }
+  })
+  ipcMain.handle('net:cdnRadar', async () => {
+    try {
+      return await cdnRadar()
+    } catch (e) {
+      return {
+        ok: false,
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        durationMs: 0,
+        entries: [],
+        error: (e as Error).message
+      }
     }
   })
 

@@ -7,6 +7,7 @@ import { NetworkQuality } from './pages/NetworkQuality'
 import { ExitDiagnostics } from './pages/ExitDiagnostics'
 import { RiskAnalysis } from './pages/RiskAnalysis'
 import { FingerprintPage } from './pages/Fingerprint'
+import { WhoAmIPage } from './pages/WhoAmI'
 import { History } from './pages/History'
 import { AiAnalysis } from './pages/AiAnalysis'
 import { Settings } from './pages/Settings'
@@ -73,6 +74,8 @@ export default function App(): JSX.Element {
           <RiskAnalysis />
         ) : page === 'fingerprint' ? (
           <FingerprintPage />
+        ) : page === 'whoAmI' ? (
+          <WhoAmIPage />
         ) : page === 'history' ? (
           <History />
         ) : page === 'ai' ? (

@@ -28,6 +28,13 @@ import type {
   SettingsResponse,
   UpdateStatus
 } from './types'
+import type {
+  CdnRadarReport,
+  DiagnosticReport,
+  TracerouteResult,
+  WhoServerReport,
+  WhoServerRequest
+} from './whoami'
 
 // =============================================================
 // 渲染层可用 API 的唯一类型事实来源：
@@ -45,6 +52,14 @@ export interface IPInsightAPI {
   detectSpeedtest: () => Promise<NormalizedIPResult>
   fetchServiceStatus: () => Promise<ServiceStatusResponse>
   probeReachability: () => Promise<ReachabilityResponse>
+
+  // 网站眼里的你：服务器侧读数（出口 / TLS / DNS / ASN / Tor）
+  whoamiServer: (req: WhoServerRequest) => Promise<WhoServerReport>
+
+  // 网络工具箱（真实测量）
+  traceroute: (target: string) => Promise<TracerouteResult>
+  diagnose: () => Promise<DiagnosticReport>
+  cdnRadar: () => Promise<CdnRadarReport>
 
   // 出口诊断（Sukka 模块）
   startDiag: (req: DiagStartRequest) => Promise<DiagStartResponse>

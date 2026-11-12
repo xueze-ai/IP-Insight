@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   Activity,
+  Eye,
   Fingerprint,
   History,
   Info,
@@ -20,6 +21,7 @@ export type PageId =
   | 'exitDiag'
   | 'risk'
   | 'fingerprint'
+  | 'whoAmI'
   | 'ai'
   | 'history'
   | 'settings'
@@ -39,6 +41,7 @@ export const NAV_MAIN: NavItem[] = [
   { id: 'exitDiag', labelKey: 'common.nav.exitDiag', icon: Waypoints },
   { id: 'risk', labelKey: 'common.nav.risk', icon: ShieldAlert },
   { id: 'fingerprint', labelKey: 'common.nav.fingerprint', icon: Fingerprint },
+  { id: 'whoAmI', labelKey: 'common.nav.whoAmI', icon: Eye },
   { id: 'ai', labelKey: 'common.nav.ai', icon: Sparkles },
   { id: 'history', labelKey: 'common.nav.history', icon: History }
 ]

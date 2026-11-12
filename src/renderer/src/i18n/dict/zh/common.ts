@@ -7,6 +7,7 @@ export const zhCommon = {
     exitDiag: '网络出口诊断',
     risk: '风险分析',
     fingerprint: '浏览器指纹',
+    whoAmI: '网站眼里的你',
     ai: 'AI 分析',
     history: '历史记录',
     settings: '设置',

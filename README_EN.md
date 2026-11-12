@@ -9,7 +9,7 @@
 [简体中文](README.md) · [English](README_EN.md)
 
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-0.2.3-green.svg)
+![Version](https://img.shields.io/badge/version-0.3.1-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey.svg)
 ![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)
 
@@ -23,13 +23,14 @@ Copyright © 2026 [Xue Ze](https://github.com/xueze-ai)
 
 IP Insight is a free, open-source Windows desktop app that answers a deceptively simple question: **“What does my network environment actually look like?”**
 
-It combines three capabilities:
+It combines four capabilities:
 
 1. **Multi-source IP detection** — visits Ping0, Net.Coffee, Net.Coffee GPT and IPPure, then cross-validates their IP-profile, risk and leak verdicts for the same machine;
 2. **Network exit diagnostics** — measures, from independent vantage points, which egress your machine actually uses per target: public IP, website split tunneling, CDN edge nodes, DNS query exits;
-3. **AI analysis** — sends the detection + diagnostics data to an AI provider you configure locally, producing a plain-language report that clearly separates “confirmed / cannot confirm”.
+3. **What the web sees** (new in 0.3.1) — lays out everything a site can read from this machine without asking permission: 157 readings, fingerprint stability, disguise checks and a target-region simulator, plus three real measurement tools (traceroute / network diagnostics / CDN radar);
+4. **AI analysis** — sends the detection + diagnostics data to an AI provider you configure locally, producing a plain-language report that clearly separates “confirmed / cannot confirm”.
 
-**Current version: v0.2.3** (see [CHANGELOG.md](CHANGELOG.md)).
+**Current version: v0.3.1** (see [CHANGELOG.md](CHANGELOG.md)).
 
 **Requirements**: Windows 10/11 x64. No Node/Python needed.
 
@@ -54,6 +55,7 @@ It combines three capabilities:
    - Home page: primary egress IP, carrier and key attributes;
    - “网络出口诊断” (Exit Diagnostics): the real egress per website you visit;
    - “风险分析” (Risk Analysis): multi-source risk semantics and disagreements;
+   - “网站眼里的你” (What the web sees): which readable traits this machine leaves behind, and whether proxy / VPN masking gives itself away;
    - For a readable summary → “AI 分析” → “生成分析” (configure any provider in Settings, or local Ollama key-free).
 4. **Keep**: every run is saved to local history; export HTML / PDF / JSON / TXT anytime.
 
@@ -71,6 +73,7 @@ It combines three capabilities:
 | **Exit Diagnostics** (new) | “Which egress do I actually use per site?” — four measured modules |
 | Risk Analysis | “How is this IP flagged? Do sources agree?” — threat intel with semantics |
 | Fingerprint | “What browser traits can detectors see?” — five groups + details |
+| **What the web sees** (new) | “What can a site read without permission?” — 157 readings + disguise checks + toolbox |
 | AI Analysis | “Explain this data in plain language” — streaming report + scenario Q&A |
 | History | “What were last week’s results?” — local snapshots + reload + export |
 
@@ -129,6 +132,62 @@ Supports: search by site/domain, category filter, failures/no-IP-only filter, gr
 > All endpoints verified live on 2026-10-24; sources, field semantics and limits: [docs/exit-diagnostics-data-sources.md](docs/exit-diagnostics-data-sources.md) (Chinese).
 
 ---
+
+## What the web sees (0.3.1 highlight)
+
+Left navigation, eye icon, right after “Fingerprint”. This is not a duplicate of the fingerprint page: the fingerprint page compares what *third-party detector sites* compute; this page shows the **raw readings** a site can observe and how they combine into an identity.
+
+Four tabs: Overview / All probes / Disguise checks / Network toolbox. Top actions: Re-scan, Copy as text, Copy JSON.
+
+![What the web sees — overview](docs/images/14-whoami-overview.png)
+
+### ① Overview
+
+One-sentence verdict plus an A–D exposure grade, then two KV columns (address & network: exit IP, geo, ASN, DNS egress, nearest colo and RTT; device & environment: OS/browser, screen, GPU, CPU/RAM, timezone & language, colour scheme, automation traces). Below that: fingerprint-stability chips for seven components, and an OpenRTB bid-request preview built from the readings on this page (shown locally, never sent anywhere).
+
+### ② All probes: 157 items
+
+| Group | Count | What it reads |
+| --- | --- | --- |
+| Seen by the server | 28 | exit IP, geo, ASN, Tor exit-list match, DNS resolver egress + ECS, TLS version/cipher, WARP state, IPv6 egress, reverse DNS, nearest colo + RTT |
+| Request headers | 8 | User-Agent, Accept-Language, Sec-CH-UA series (brands/platform/arch/model/bitness), encodings, DNT/GPC, Referer |
+| Language & region | 15 | navigator.languages, Intl locale/calendar/number/date formats, system timezone & hour cycle, first day of week, keyboard layout, speech voices |
+| Fingerprint | 28 | Canvas / WebGL / audio / math / emoji version / font list / DOMRect / SVG / text metrics / WebGL pixels / API counts / timer resolution / recursion depth / composite ID / hardware ID / cache ETag / lie detection / anti-fingerprint switches |
+| Device | 47 | OS & browser (incl. Client Hints), CPU arch, screen & window, refresh rate, GPU & software rendering, WebGPU, cores, memory, touch, battery, camera/mic, audio hardware, biometrics, Bluetooth, VR/AR, codecs, recording formats, DRM, storage quota |
+| Browser settings | 27 | colour scheme, reduced motion, colour gamut, accessibility, default font & accent colour, permissions, sensitive APIs, PDF viewer, built-in AI, automation, extensions & ad blocking, tab history, storage traces |
+| Network | 4 | WebRTC public candidate, LAN candidate, IPv6 leak, connection type/throughput |
+
+Each row expands to the raw reading and its source; levels (strong identifier / narrows the crowd / public info) tell you which are worth changing. **Rarity** is computed only against local history — the app never claims “1 in 208,094 visits” without a public sample base, because inventing that number would be lying.
+
+![All probes](docs/images/15-whoami-probes.png)
+
+### ③ Disguise checks
+
+Thirteen evidence-based checks: DNS leak, round-trip latency, connection fingerprint, timezone vs IP, language vs IP, WebRTC leak, datacenter IP, UA vs real system, tampered environment, anti-detect-browser traces, fingerprint tracking, automation traces, HTTP/3 + ECH, post-quantum key exchange, WARP. Only conflicts with evidence are reported; anything unprovable is explicitly marked “not judged on this page”, and each finding comes with a concrete fix.
+
+![Disguise checks and the region simulator](docs/images/16-whoami-disguise.png)
+
+### ④ Target-region simulator
+
+Pick Hong Kong / Singapore / Taiwan / Japan / US / UK / Germany; the app compares IP geo, system timezone, browser language, DNS egress and WebRTC, then tells you how many checks line up, which ones do not, and how to change each.
+
+![Network diagnostics](docs/images/17-whoami-diagnose.png)
+
+### ⑤ Network toolbox (three real measurements)
+
+- **Traceroute** — system `tracert -d`, up to 22 hops, per-hop RTT, timeouts marked separately;
+- **Network diagnostics** — local address, DNS servers, DNS resolution, TCP 443 to Cloudflare/GitHub/Baidu, HTTP latency, NIC MTU: eight checks with pass/warn/fail and evidence;
+- **CDN radar** — ten CDN performance endpoints queried concurrently, with edge node id, cache signals and timing.
+
+Shortcuts below jump to the existing speed test, risk analysis (IP quality) and exit diagnostics pages instead of duplicating them.
+
+### Honest limits
+
+- **Five items are server-side only** (JA4, HTTP/2, TCP/IP, QUIC fingerprints, UA echo): labelled “server-side observable only”, never faked.
+- **ECH / post-quantum**: `/cdn-cgi/trace` does not return them; the page says “not judged here”.
+- **Font probing is approximate** (measureText width comparison) and can miss unusual fonts.
+- **WebGL/WebGPU may be unreadable** in a VM, remote desktop or with hardware acceleration off; the item shows “unreadable”, not “none”, and virtualisation is not inferred from it.
+- **This page's readings are not written to history and not sent to AI** in this release; use “Copy JSON” to keep them.
 
 ## Network Quality
 
@@ -234,7 +293,8 @@ Automated verification hooks (real window + real network):
 #   → real-window regression flows
 ```
 
-Verification records (pass / fail / environment-limited): [docs/verification-0.2.3.md](docs/verification-0.2.3.md) (Chinese).
+Verification records (pass / fail / environment-limited): [docs/verification-0.3.1.md](docs/verification-0.3.1.md) (0.3.1), [docs/verification-0.2.3.md](docs/verification-0.2.3.md) (0.2.3) — both in Chinese.
+Per-item sources and methods for “What the web sees”: [docs/whoami-data-sources.md](docs/whoami-data-sources.md) (Chinese).
 Screenshot inventory: [docs/screenshots.md](docs/screenshots.md).
 
 ### Directory layout

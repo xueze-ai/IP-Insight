@@ -10,6 +10,7 @@ import { enHistory } from './dict/en/history'
 import { enComponents } from './dict/en/components'
 import { enMisc } from './dict/en/misc'
 import { enDiag } from './dict/en/diag'
+import { enWhoami } from './dict/en/whoami'
 import type { Dict } from './zh'
 
 // 英文字典必须与中文典完全同构，缺 key 在这里编译报错。
@@ -25,5 +26,6 @@ export const en: Dict = {
   history: enHistory,
   components: enComponents,
   misc: enMisc,
-  diag: enDiag
+  diag: enDiag,
+  whoami: enWhoami
 }

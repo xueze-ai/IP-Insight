@@ -21,6 +21,13 @@ import type {
   SettingsResponse,
   UpdateStatus
 } from '@shared/types'
+import type {
+  CdnRadarReport,
+  DiagnosticReport,
+  TracerouteResult,
+  WhoServerReport,
+  WhoServerRequest
+} from '@shared/whoami'
 
 // =============================================================
 // Preload - 通过 contextBridge 安全地向渲染层暴露最小 API。
@@ -55,6 +62,16 @@ const api: IPInsightAPI = {
   // 本机可达性实测
   probeReachability: (): Promise<ReachabilityResponse> =>
     ipcRenderer.invoke('probe:reachability'),
+
+  // 网站眼里的你：服务器侧读数
+  whoamiServer: (req: WhoServerRequest): Promise<WhoServerReport> =>
+    ipcRenderer.invoke('whoami:server', req),
+
+  // 网络工具箱
+  traceroute: (target: string): Promise<TracerouteResult> =>
+    ipcRenderer.invoke('net:traceroute', target),
+  diagnose: (): Promise<DiagnosticReport> => ipcRenderer.invoke('net:diagnose'),
+  cdnRadar: (): Promise<CdnRadarReport> => ipcRenderer.invoke('net:cdnRadar'),
 
   // ------------ 出口诊断（Sukka 模块） ------------
   startDiag: (req: DiagStartRequest): Promise<DiagStartResponse> =>

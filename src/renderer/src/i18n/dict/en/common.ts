@@ -8,6 +8,7 @@ export const enCommon: typeof zhCommon = {
     exitDiag: 'Exit Diagnostics',
     risk: 'Risk Analysis',
     fingerprint: 'Fingerprint',
+    whoAmI: 'What the web sees',
     ai: 'AI Analysis',
     history: 'History',
     settings: 'Settings',
