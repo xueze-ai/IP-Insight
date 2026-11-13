@@ -30,7 +30,10 @@ jobs:
         run: npm run typecheck:node; npm run typecheck:web
 
       - name: Build Windows installer + portable
-        run: npm run dist
+        run: |
+          npm run build
+          npx electron-builder --win --publish never
+          node scripts/finalize-release.mjs
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
