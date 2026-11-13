@@ -1,13 +1,13 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
 PackageIdentifier: xueze-ai.IP-Insight
-PackageVersion: 0.2.1
+PackageVersion: 0.3.1
 PackageLocale: zh-CN
 Publisher: 薛泽（Xue Ze）
 PackageName: 网鉴 · IP Insight
 License: MIT
 Copyright: Copyright © 2026 薛泽（Xue Ze）
-ShortDescription: 一眼看清你的出口 IP——多源检测聚合、交叉验证与 AI 综合分析
-Description: 网鉴（IP Insight）把你的公网 IP 放到多个独立检测源下同时「体检」：自动打开检测网站、等待页面 JavaScript 真实执行、提取结果、统一成同一套数据模型，再做多源交叉验证与 AI 综合分析，最后给你一份可读、可导出、可回溯的报告。不内置任何 IP 数据库，所有结论来自真实实时检测。MIT 免费开源。
+ShortDescription: 不用授权，看清网站眼里的你——多源 IP 检测、出口诊断与暴露面体检
+Description: 网鉴（IP Insight）把一台机器的网络环境放到多个独立检测源下同时体检：四源交叉验证 IP 画像与风险，实测访问不同网站时的真实出口、CDN 命中节点与 DNS 出口；0.3.1 起新增「网站眼里的你」，把网站不用授权就能读到的 157 项信息逐条摊开，配指纹稳定性、13 组伪装检测、目标地区模拟与路由追踪 / 网络诊断 / CDN 雷达。不内置 IP 数据库，所有结论来自真实实时检测；无遥测。MIT 免费开源。
 Moniker: ip-insight
 Tags:
   - ip
@@ -15,6 +15,6 @@ Tags:
   - vpn
   - proxy
   - speedtest
-ReleaseNotesUrl: https://github.com/xueze-ai/IP-Insight/releases/tag/v0.2.1
+ReleaseNotesUrl: https://github.com/xueze-ai/IP-Insight/releases/tag/v0.3.1
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

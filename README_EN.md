@@ -1,19 +1,20 @@
 <div align="center">
 
-<img src="resources/Logo.png" width="96" alt="IP Insight Logo" />
+<img src="resources/Logo.png" width="112" alt="IP Insight logo" />
 
-# Wang Jian · IP Insight
+# IP Insight · 网鉴
 
-**Multi-source IP detection + network exit diagnostics + AI analysis (Windows desktop app)**
+**See yourself the way the web sees you — no permissions required.**
 
-[简体中文](README.md) · [English](README_EN.md)
+Multi-source IP checks · egress diagnostics · fingerprint & exposure surface · AI analysis
+
+[简体中文](README.md) · [English](README_EN.md) · [Releases](https://github.com/xueze-ai/IP-Insight/releases) · [Changelog](CHANGELOG.md)
 
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-0.3.1-green.svg)
-![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey.svg)
+![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-lightgrey.svg)
 ![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)
-
-Copyright © 2026 [Xue Ze](https://github.com/xueze-ai)
+![No Telemetry](https://img.shields.io/badge/telemetry-none-success.svg)
 
 </div>
 
@@ -21,324 +22,185 @@ Copyright © 2026 [Xue Ze](https://github.com/xueze-ai)
 
 ## What it is
 
-IP Insight is a free, open-source Windows desktop app that answers a deceptively simple question: **“What does my network environment actually look like?”**
+A free Windows desktop app for a question most people cannot answer: **what does a website already know about me?**
 
-It combines four capabilities:
+Open any page and, without you clicking “Allow”, the server already sees your egress IP, its geolocation, ASN, DNS resolver, TLS and HTTP versions, OS and browser build, screen, GPU, fonts, timezone, language, Canvas / WebGL / audio fingerprints — and it can tell whether your User-Agent matches the machine that actually opened the connection. IP Insight lays those readings out one by one and marks what is confirmed versus what is only inferred.
 
-1. **Multi-source IP detection** — visits Ping0, Net.Coffee, Net.Coffee GPT and IPPure, then cross-validates their IP-profile, risk and leak verdicts for the same machine;
-2. **Network exit diagnostics** — measures, from independent vantage points, which egress your machine actually uses per target: public IP, website split tunneling, CDN edge nodes, DNS query exits;
-3. **What the web sees** (new in 0.3.1) — lays out everything a site can read from this machine without asking permission: 157 readings, fingerprint stability, disguise checks and a target-region simulator, plus three real measurement tools (traceroute / network diagnostics / CDN radar);
-4. **AI analysis** — sends the detection + diagnostics data to an AI provider you configure locally, producing a plain-language report that clearly separates “confirmed / cannot confirm”.
+Four things it does:
 
-**Current version: v0.3.1** (see [CHANGELOG.md](CHANGELOG.md)).
+- **Cross-check sources** — Ping0, Net.Coffee, Net.Coffee GPT and IPPure queried together; profile, risk and leak verdicts side by side, disagreements flagged, never silently merged;
+- **See the egress** — does every site see the same IP? Which CDN edge served you? Where does your DNS resolver exit?
+- **Audit your exposure** (0.3.1) — 157 site-readable signals, fingerprint stability, 13 evidence-based disguise checks, a target-region simulator, plus traceroute / network diagnostics / CDN radar;
+- **Explain it** (optional) — hand the result to a model you configure (local Ollama works, key-free) and get confirmed / notable / still-unknown / next steps.
 
-**Requirements**: Windows 10/11 x64. No Node/Python needed.
+No browsing history, no telemetry, no crash reporting. The only outbound traffic is the public diagnostic endpoints the checks themselves need.
 
-**Download**: grab from [Releases](https://github.com/xueze-ai/IP-Insight/releases) —
+![What the web sees · overview](docs/images/14-whoami-overview.png)
 
-| File | For |
+---
+
+## Install
+
+Download from [Releases](https://github.com/xueze-ai/IP-Insight/releases):
+
+| File | What it is |
 | --- | --- |
-| `IP-Insight-<ver>-Setup.exe` | NSIS installer (Start-menu shortcuts, auto-update) |
-| `IP-Insight-Portable.zip` | Portable (unzip and run) |
-| `SHA256SUMS.txt` | Integrity: `certutil -hashfile <file> SHA256` |
+| `IP-Insight-0.3.1-Setup.exe` | NSIS installer — Start-menu / desktop shortcuts, in-app updates |
+| `IP-Insight-Portable.zip` | Portable — unzip and run, no registry writes |
+| `SHA256SUMS.txt` | Checksums — `certutil -hashfile <file> SHA256` |
 
-> Unsigned build: SmartScreen may warn on first run — “More info → Run anyway”. Free code-signing path: `docs/code-signing.md`.
-> WinGet manifests live in `winget/`; whether the package is actually installable via WinGet should be verified with `winget search` at install time.
+Requirements: Windows 10 / 11 x64. No Node, Python or runtime needed.
 
----
-
-## Three-minute quick start
-
-1. **Pick a build**: installer for daily use, portable otherwise.
-2. **Run a detection**: open the app → “开始综合检测” (Start comprehensive detection) on the home page (~30–60s, four sources).
-3. **Read results**:
-   - Home page: primary egress IP, carrier and key attributes;
-   - “网络出口诊断” (Exit Diagnostics): the real egress per website you visit;
-   - “风险分析” (Risk Analysis): multi-source risk semantics and disagreements;
-   - “网站眼里的你” (What the web sees): which readable traits this machine leaves behind, and whether proxy / VPN masking gives itself away;
-   - For a readable summary → “AI 分析” → “生成分析” (configure any provider in Settings, or local Ollama key-free).
-4. **Keep**: every run is saved to local history; export HTML / PDF / JSON / TXT anytime.
-
-> Want to preview the UI without installing? The repo ships a **Demo mode**: `npm install && npm run build && npm run preview:web`, then open the printed URL in a browser (sample data, Demo badge on top bar).
+> The build is unsigned, so SmartScreen may warn on first launch: “More info → Run anyway”. Verify the SHA-256, or build it yourself with the steps below.
 
 ---
 
-## Page guide
+## Three-minute tour
+
+1. Open the app → “开始综合检测” on the home page (~30–60 s, four sources in parallel);
+2. **Exit Diagnostics** — which egress each site actually sees;
+3. **What the web sees** — the readable traits this machine leaves, and whether a proxy / VPN gives itself away;
+4. **AI Analysis** → “生成分析” for a plain-language report (configure a provider first, or local Ollama);
+5. Every run is stored in local history; export HTML / PDF / JSON / TXT.
+
+Want to see the UI first? A **Demo mode** ships in the repo: `npm install && npm run build && npm run preview:web`, then open the printed URL (sample data, Demo badge in the top bar).
+
+---
+
+## Pages
 
 | Page | Question it answers |
 | --- | --- |
-| Overview (综合检测) | “How is my network overall?” — four-source cross-check + summary |
-| IP Info | “What are this IP’s network attributes?” — multi-source field comparison |
-| Network Quality | “Speed, latency to regions, reachability?” — speedtest / global nodes / reachability / service status |
-| **Exit Diagnostics** (new) | “Which egress do I actually use per site?” — four measured modules |
-| Risk Analysis | “How is this IP flagged? Do sources agree?” — threat intel with semantics |
-| Fingerprint | “What browser traits can detectors see?” — five groups + details |
-| **What the web sees** (new) | “What can a site read without permission?” — 157 readings + disguise checks + toolbox |
-| AI Analysis | “Explain this data in plain language” — streaming report + scenario Q&A |
-| History | “What were last week’s results?” — local snapshots + reload + export |
+| Overview | How is my network overall? Four-source cross-check + summary |
+| IP Info | What are this IP's network attributes? Multi-source field comparison |
+| Network Quality | Speed, regional latency, reachability, service status |
+| Exit Diagnostics | Which egress do I use per site? |
+| Risk Analysis | How is this IP flagged? Do the sources agree? |
+| Fingerprint | What browser traits can detectors see? Five groups + detail |
+| **What the web sees** | What can a site read without permission? |
+| AI Analysis | Explain the data, separating facts from guesses |
+| History | What did last week look like? Snapshots, reload, export |
 
----
+### What the web sees (0.3.1)
 
-## Network Exit Diagnostics (0.2.3 highlight)
+Four tabs: Overview, All probes, Disguise checks, Network toolbox.
 
-Open from the left navigation. “Run all” at the top; the overview gives one-sentence stats, e.g.:
+- **157 probes** grouped as server-visible / request headers / locale / fingerprint / device / browser settings / network. Each row states its source method and *why this reading exposes you*, graded strong identifier / narrowing / public info;
+- **Fingerprint stability** — Canvas, WebGL, audio, font list, screen, system timezone, browser language: unchanged or not, versus your previous visit;
+- **Disguise checks** — 13 evidence-based conflict tests (DNS leak, round-trip latency, connection-layer traits, timezone/language vs IP, WebRTC, datacenter IP, UA vs real system, tampered environment, anti-detect traces, HTTP/3 + ECH, post-quantum key exchange, …). Only conflicts with evidence are reported, each with a fix;
+- **Target-region simulator** — HK / SG / TW / JP / US / GB / DE: how many items already match, which are missing, and how to change each;
+- **Network toolbox** — traceroute (`tracert -d`), network diagnostics (8 real TCP / DNS / HTTP checks), CDN radar (10 CDN endpoints: edge node, cache signal, latency).
 
-> 3 HTTP egresses observed; 8 sites returned an exit IP; 2 reachable only; 1 failed; 4 DNS recursive exits (counted separately).
+**Limits are stated, not hidden**: JA4, HTTP/2, TCP/IP and QUIC fingerprints plus server-side UA echo can only be observed server-side — they are labelled “server-side only” instead of being faked. There is no public sample database, so no “you are one in 208,094” claims. `tracert` / `netsh` only work on Windows; other platforms report “unsupported” rather than inventing output.
 
-Four tabs, each runnable on its own; switching tabs keeps results.
+Details (Chinese): [docs/features-whoami.md](docs/features-whoami.md) · sources & methods: [docs/whoami-data-sources.md](docs/whoami-data-sources.md) · test log: [docs/verification-0.3.1.md](docs/verification-0.3.1.md)
 
-### ① Website split tunneling (default tab)
-
-**What for**: see which egress each site actually sees. Different exits can come from normal split-tunnel rules — not an anomaly by themselves.
+<details>
+<summary>Exit diagnostics screenshots</summary>
 
 ![Split tunneling](docs/images/05-exitdiag-split.png)
-
-**How to read**: one row per site. The category chip (CN / Intl / AI / Dev) classifies the *target*; the “Country/Region · ISP” column is *geo of the measured exit IP* (source & time in the detail view). Targets that echo show the real IPv4/IPv6; targets that don’t explicitly read “Reachable, no exit IP provided” — never filled with the main egress or another site’s result.
-
-Supports: search by site/domain, category filter, failures/no-IP-only filter, group-by-exit, copy IP / copy table, retry item / retry all failed. Click a row for details (URL, mechanism, HTTP status, latency, measured time, data source, attempt history and raw evidence).
-
-**Limits**: only official diagnostic endpoints of each target are tested; results describe that endpoint — they do not claim the whole site uses the same egress, and a reachable endpoint never means “service unlocked”.
-
-### ② Public IP
-
-**What for**: the public egress observed by external services (not your LAN address).
-
-![Public IP](docs/images/06-exitdiag-publicip.png)
-
-**How to read**: one row per vantage point; IPv4 / IPv6 in separate rows — an IPv6-only success keeps the real address. The mechanism column distinguishes “HTTP following the system proxy” from “Node https forced-IPv6 direct (no app-layer proxy)” — the latter may still be routed by system routing/TUN and only describes its own path.
-
-**Limits**: no IPv6 connectivity shows a neutral “Unsupported”, never a network fault; different vantage points seeing different exits are shown side by side, never merged into one “true IP”.
-
-### ③ CDN edge node
-
-**What for**: which CDN edge served this request.
-
-![CDN nodes](docs/images/07-exitdiag-cdn.png)
-
-**How to read**: node IDs are kept **raw and complete** (`HKG61-P1`, `cache-hkg17922-HKG`) — no truncation, no city guessing; cache signals are kept in response order (`Miss from cloudfront → Hit from cloudfront` is never simplified to HIT).
-
-**Limits**: a CDN node location is not where you are, not the DNS answer, and not your egress; latency is HTTP request time, not ICMP ping; CDNs that don’t echo a PoP only report reachability.
-
-### ④ DNS exit lookup
-
-**What for**: the egress a recursive resolver exposes to authoritative DNS — usually **not** your public IP.
-
+![CDN edge node](docs/images/07-exitdiag-cdn.png)
 ![DNS exit](docs/images/08-exitdiag-dns.png)
 
-**How to read**: two groups — “System-configured resolver” and “Specified public DNS (direct UDP)”. Field semantics follow Google/Akamai official docs: Akamai’s `ns` segment is the resolver exit; `ip` is the ECS representative address (not an exit); `ecs` is the client subnet. ECS/TXT-only answers never produce a guessed exit. udp4/udp6 chosen by server address.
-
-**Limits**: results for specified public DNS do not represent “the browser’s actual DNS”; the test cannot cover browser secure DNS (DoH), in-app DoH, proxy-side remote resolution, or all system split-DNS rules. **A DNS exit differing from the HTTP exit is common and alone does not indicate a “DNS leak”.**
-
-> All endpoints verified live on 2026-10-24; sources, field semantics and limits: [docs/exit-diagnostics-data-sources.md](docs/exit-diagnostics-data-sources.md) (Chinese).
+</details>
 
 ---
 
-## What the web sees (0.3.1 highlight)
-
-Left navigation, eye icon, right after “Fingerprint”. This is not a duplicate of the fingerprint page: the fingerprint page compares what *third-party detector sites* compute; this page shows the **raw readings** a site can observe and how they combine into an identity.
-
-Four tabs: Overview / All probes / Disguise checks / Network toolbox. Top actions: Re-scan, Copy as text, Copy JSON.
-
-![What the web sees — overview](docs/images/14-whoami-overview.png)
-
-### ① Overview
-
-One-sentence verdict plus an A–D exposure grade, then two KV columns (address & network: exit IP, geo, ASN, DNS egress, nearest colo and RTT; device & environment: OS/browser, screen, GPU, CPU/RAM, timezone & language, colour scheme, automation traces). Below that: fingerprint-stability chips for seven components, and an OpenRTB bid-request preview built from the readings on this page (shown locally, never sent anywhere).
-
-### ② All probes: 157 items
-
-| Group | Count | What it reads |
-| --- | --- | --- |
-| Seen by the server | 28 | exit IP, geo, ASN, Tor exit-list match, DNS resolver egress + ECS, TLS version/cipher, WARP state, IPv6 egress, reverse DNS, nearest colo + RTT |
-| Request headers | 8 | User-Agent, Accept-Language, Sec-CH-UA series (brands/platform/arch/model/bitness), encodings, DNT/GPC, Referer |
-| Language & region | 15 | navigator.languages, Intl locale/calendar/number/date formats, system timezone & hour cycle, first day of week, keyboard layout, speech voices |
-| Fingerprint | 28 | Canvas / WebGL / audio / math / emoji version / font list / DOMRect / SVG / text metrics / WebGL pixels / API counts / timer resolution / recursion depth / composite ID / hardware ID / cache ETag / lie detection / anti-fingerprint switches |
-| Device | 47 | OS & browser (incl. Client Hints), CPU arch, screen & window, refresh rate, GPU & software rendering, WebGPU, cores, memory, touch, battery, camera/mic, audio hardware, biometrics, Bluetooth, VR/AR, codecs, recording formats, DRM, storage quota |
-| Browser settings | 27 | colour scheme, reduced motion, colour gamut, accessibility, default font & accent colour, permissions, sensitive APIs, PDF viewer, built-in AI, automation, extensions & ad blocking, tab history, storage traces |
-| Network | 4 | WebRTC public candidate, LAN candidate, IPv6 leak, connection type/throughput |
-
-Each row expands to the raw reading and its source; levels (strong identifier / narrows the crowd / public info) tell you which are worth changing. **Rarity** is computed only against local history — the app never claims “1 in 208,094 visits” without a public sample base, because inventing that number would be lying.
-
-![All probes](docs/images/15-whoami-probes.png)
-
-### ③ Disguise checks
-
-Thirteen evidence-based checks: DNS leak, round-trip latency, connection fingerprint, timezone vs IP, language vs IP, WebRTC leak, datacenter IP, UA vs real system, tampered environment, anti-detect-browser traces, fingerprint tracking, automation traces, HTTP/3 + ECH, post-quantum key exchange, WARP. Only conflicts with evidence are reported; anything unprovable is explicitly marked “not judged on this page”, and each finding comes with a concrete fix.
-
-![Disguise checks and the region simulator](docs/images/16-whoami-disguise.png)
-
-### ④ Target-region simulator
-
-Pick Hong Kong / Singapore / Taiwan / Japan / US / UK / Germany; the app compares IP geo, system timezone, browser language, DNS egress and WebRTC, then tells you how many checks line up, which ones do not, and how to change each.
-
-![Network diagnostics](docs/images/17-whoami-diagnose.png)
-
-### ⑤ Network toolbox (three real measurements)
-
-- **Traceroute** — system `tracert -d`, up to 22 hops, per-hop RTT, timeouts marked separately;
-- **Network diagnostics** — local address, DNS servers, DNS resolution, TCP 443 to Cloudflare/GitHub/Baidu, HTTP latency, NIC MTU: eight checks with pass/warn/fail and evidence;
-- **CDN radar** — ten CDN performance endpoints queried concurrently, with edge node id, cache signals and timing.
-
-Shortcuts below jump to the existing speed test, risk analysis (IP quality) and exit diagnostics pages instead of duplicating them.
-
-### Honest limits
-
-- **Five items are server-side only** (JA4, HTTP/2, TCP/IP, QUIC fingerprints, UA echo): labelled “server-side observable only”, never faked.
-- **ECH / post-quantum**: `/cdn-cgi/trace` does not return them; the page says “not judged here”.
-- **Font probing is approximate** (measureText width comparison) and can miss unusual fonts.
-- **WebGL/WebGPU may be unreadable** in a VM, remote desktop or with hardware acceleration off; the item shows “unreadable”, not “none”, and virtualisation is not inferred from it.
-- **This page's readings are not written to history and not sent to AI** in this release; use “Copy JSON” to keep them.
-
-## Network Quality
-
-Order: **speedtest → global node latency → local reachability → service status**, with quick anchors at the top.
-
-![Network quality](docs/images/03-network-quality.png)
-
-- **Speedtest**: built-in official Cloudflare engine (down/up/latency/jitter/loaded latency; packet loss requires WebRTC TURN and shows “Not measured” — never 0 — when unavailable).
-- **Global latency**: 20 nodes, min/avg/max (from the Net.Coffee source).
-- **Reachability**: tests whether your machine receives a response; a response does not mean your account, region, entitlements or the whole service are available.
-- **Service status**: public info from each service’s official status page (no probing of the service itself); “all normal” likewise does not mean your account/region is enabled.
-
----
-
-## Reading multi-source results, risk and fingerprint
-
-- **Overview & multi-source**: after detection, “View full results” expands per-source cards and a consistency matrix — agreements ✓, conflicts ⚠ with per-source values, no forced single verdict. ![Multi-source](docs/images/02-multisource.png)
-- **Risk**: the overall level is “a program-computed value: each source’s scales normalized, median taken” — labeled as such, with each source’s original semantics; the ChatGPT split egress is a separate card. ![Risk](docs/images/09-risk.png)
-- **Fingerprint**: data comes from the app’s built-in hidden browser (may differ from your daily Chrome/Edge — stated on the page); having a fingerprint is not itself a risk and does not imply tracking. ![Fingerprint](docs/images/10-fingerprint.png)
-
----
-
-## AI, history and export
-
-### AI (optional — everything else works without it)
-
-Settings → AI Providers: 9 built-in OpenAI-compatible providers + custom + **local Ollama (key-free, data never leaves your machine)**. The API key is stored only in local `%AppData%/IP-Insight/settings.json` and sent directly to your chosen provider as login credentials (this app never proxies or stores it elsewhere); detection never auto-triggers AI — only clicking “Generate” sends a bounded summary.
-
-Report structure: confirmed / worth attention / cannot confirm / consistency & semantics / next steps. Scenario Q&A is supported, and **standalone exit-diagnostics snapshots can be analyzed without running multi-source detection first**.
-
-![AI](docs/images/11-ai.png)
-
-### History
-
-Every comprehensive run is auto-saved (failed/partial sources included, with the linked exit-diagnostics summary); a full manual diagnostics run can be saved as a standalone snapshot. Loading history shows a “Viewing history” banner — history is an immutable snapshot that live runs never overwrite. ![History](docs/images/12-history.png)
-
-### Export
-
-HTML / PDF / JSON / TXT all follow the currently selected snapshot: readable summary + key data + sources + times + statuses + failure reasons, plus professional detail (exit-diagnostics geo / node / cache-signal / ECS columns; long tables and IPv6 do not overflow in PDF). JSON additionally carries the full structured data.
-
----
-
-## Privacy, data locations and FAQ
-
-### Privacy boundaries
+## Privacy
 
 | Data | Location | Notes |
 | --- | --- | --- |
-| Settings (incl. AI API key) | local `%AppData%/IP-Insight/settings.json` | never uploaded |
-| History (incl. diagnostics snapshots) | local `%AppData%/IP-Insight/history.json` | can be disabled / day-limited / cleared on exit |
-| Detection & diagnostics | memory | not written to disk except history; evidence truncated & sanitized — no cookies/auth headers/tokens |
+| Settings (incl. AI keys) | `%AppData%/IP-Insight/settings.json` | Local only |
+| History | `%AppData%/IP-Insight/history.json` | Can be disabled / limited / cleared on exit |
+| Fingerprint baseline | local localStorage | Only 7 component hashes, for comparison; clearable |
+| Detection run | Memory | Nothing written; raw evidence truncated and redacted, no cookies / auth headers / tokens |
 
-Third-party requests (details in [PRIVACY.md](PRIVACY.md)):
-
-- Detection sites (Ping0 / Net.Coffee / IPPure / ip.skk.moe page flow): same as opening them in your browser;
-- Exit-diagnostics targets: official Cloudflare trace, per-target official diagnostic endpoints, public perf-test resources (see the data-sources doc);
-- **Exit-IP geo lookup**: unique measured exit IPs are looked up via public geo APIs (ip-api.com, fallback ipwho.is; deduplicated per IP, concurrency-limited to 2, 10-min cache; some targets like bilibili/IPIP.net provide geo themselves and are labeled as such);
-- DNS exit lookup: official diagnostic TXT zones (Google / Akamai) queried against system and public resolvers;
-- AI provider: only on explicit “Generate / Ask” clicks, sending normalized results + bounded diagnostics fact lines.
-
-No browsing history, local files or clipboard collection; no telemetry/statistics/crash reporting. The hidden browser windows keep normal Chromium cache/site storage (local userData) for browser-consistent behavior; clear it in Settings or delete the folder.
-
-### FAQ
-
-| Symptom | Handling |
-| --- | --- |
-| SmartScreen block | Unsigned build: “More info → Run anyway” |
-| A source says “manual verification required” | The site raised a challenge; open the source site manually, pass it, re-run (never bypassed) |
-| ip.skk.moe shows a challenge page | Cloudflare challenge for your current egress; reported honestly — retry after passing it manually |
-| A diagnostics row shows 403 / 429 | Target refused or rate-limited (reason shown in the row); retry that item later |
-| Global nodes show “—” | Run a comprehensive detection first (data comes from the Net.Coffee source) |
-| Packet loss “Not measured” | Requires WebRTC TURN; unavailable networks show “Not measured”, not 0 |
-| Geo column “Not fetched” | Exit IP obtained but the public geo API failed; the IP is kept and the row is not a failure |
-| DNS exit ≠ public IP | Common (carrier resolver clusters, ECS…); not a “DNS leak” by itself |
-| Reachable / status OK but still unusable | Those two only mean “got a response” and “the vendor says normal” — not account/region/entitlement availability |
-| AI connection failed | Use “Test connection” in Settings to see the server’s real error |
-| Reachability differs from browsing | Probes follow the system proxy; extension-only proxies are not on this path |
-| Packaging download timeouts | Use the npmmirror mirror: `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run dist` |
+- No telemetry, no analytics, no crash upload;
+- Only the public endpoints required by the checks — full list in [PRIVACY.md](PRIVACY.md);
+- AI is contacted only when you click “生成分析”, and only sends a bounded summary to the provider you chose.
 
 ---
 
-## Building from source & verification
+## Build from source
 
 ```bash
 git clone https://github.com/xueze-ai/IP-Insight.git
 cd IP-Insight
-npm install
+npm ci
 
-npm run dev                          # dev mode (Electron)
-npm run typecheck:node && npm run typecheck:web   # type checks (both sides, zero errors)
-npm run build                        # build all three targets
-npm run dist                         # Windows packaging: NSIS + portable zip + SHA256SUMS
-node scripts/test-textparse.cjs      # parsing unit tests (sanitized real samples, offline)
-node scripts/capture-demo.cjs        # regenerate docs/images screenshots (asserted; fails loudly)
+npm run dev                                        # dev mode
+npm run typecheck:node && npm run typecheck:web    # type checks
+npm run build                                      # three-target build
+npm run dist                                       # Windows: NSIS + portable zip + SHA256SUMS
 ```
 
-Automated verification hooks (real window + real network):
+Slow Electron downloads in mainland China:
 
 ```bash
-# IPI_AUTO_TEST=diag IPI_DIAG_MODULES=publicIp,splitTunnel,cdnNode,dnsExit electron out/main/index.js
-#   → live collection of all four modules, writes test-output/diag.result.json
+ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run dist
+```
+
+Helpers:
+
+```bash
+node scripts/test-textparse.cjs   # parser unit tests (real, redacted samples)
+node scripts/capture-demo.cjs     # regenerate docs/images screenshots with assertions
+```
+
+Real-window + real-network regression hooks:
+
+```bash
+IPI_AUTO_TEST=diag npm run dev -- -- --env
 # IPI_UI_VERIFY=1 / _HIST / _RISK / _SETTINGS / _FP / _EXIT
-#   → real-window regression flows
 ```
 
-Verification records (pass / fail / environment-limited): [docs/verification-0.3.1.md](docs/verification-0.3.1.md) (0.3.1), [docs/verification-0.2.3.md](docs/verification-0.2.3.md) (0.2.3) — both in Chinese.
-Per-item sources and methods for “What the web sees”: [docs/whoami-data-sources.md](docs/whoami-data-sources.md) (Chinese).
-Screenshot inventory: [docs/screenshots.md](docs/screenshots.md).
-
-### Directory layout
+### Layout
 
 ```
-├─ src/
-│  ├─ main/                  # Electron main process
-│  │  ├─ diag/               # exit diagnostics: targets / probes / textparse / geo / orchestrator
-│  │  ├─ providers/          # one adapter per site + hidden-browser base
-│  │  └─ ai/ …               # settings / history / export / i18n / SSE client & prompts
-│  ├─ preload/               # contextBridge minimal API surface
-│  ├─ renderer/              # React UI (Material 3), incl. standalone ExitDiagnostics page
-│  └─ shared/                # unified data models / diagnostics model / API types
-├─ docs/                     # data sources / verification / screenshot inventory / images
-└─ scripts/                  # packaging finalize / unit tests / capture & shot-check scripts
+src/
+├─ main/          main process: window / IPC / settings / history / export
+│  ├─ ai/         SSE streaming client + analysis prompts
+│  ├─ diag/       exit diagnostics: targets / probes / textparse / geo / orchestrator
+│  ├─ whoami/     what the web sees: serverProbe / tools (traceroute, diagnostics, radar)
+│  └─ providers/  one adapter per source + hidden browser base
+├─ preload/       minimal contextBridge API surface
+├─ renderer/      React + Material 3
+│  ├─ pages/      including ExitDiagnostics and WhoAmI
+│  ├─ whoami/     probe catalog / browser collection / baseline / disguise / OpenRTB
+│  ├─ state/      detection, diagnostics, AI, navigation stores
+│  └─ utils/      multi-source consensus and report model
+└─ shared/        shared data models and API types
+docs/              data sources / verification / screenshots
+scripts/           release finalisation / tests / screenshot capture
 ```
 
 ---
 
 ## Contributing
 
-Issues and PRs welcome:
+1. Fork, branch from `feat/xxx` or `fix/xxx`;
+2. Keep three rules: **one adapter per source**, **one shared data model**, **never fake data or bypass human verification**;
+3. `npm run typecheck:node && npm run typecheck:web && npm run build` must pass;
+4. In the PR, state the motivation, the touched surface and how you verified it (attach a real sample for changes to reading semantics).
 
-1. Fork; use `feat/xxx` / `fix/xxx` branches;
-2. Keep the constraints: one adapter per site, unified data model, never fabricate data, never bypass challenges;
-3. `npm run typecheck:node && npm run typecheck:web && npm run build` green before commit;
-4. Describe motivation, scope and verification in the PR.
+When filing a bug, include version, Windows build, steps, and a screenshot or the “copy as text” output. A wrong reading matters more than a crash.
 
-Code of conduct: friendly, on-topic; respect data sources’ terms of service.
+## Credits
+
+- The question list was inspired by sites like [who.1ms.dog](https://who.1ms.dog/zh-cn/) that explain what a website can read without permission. This project is an independent implementation — no copied code or data, and no site-wide rarity statistics;
+- Thanks to Cloudflare, Akamai, Tor Project, ip-api and ipwho.is for public diagnostic endpoints;
+- Thanks to Ping0, Net.Coffee and IPPure, whose results are aggregated.
 
 ## License
 
-[MIT](LICENSE): free to use, modify, distribute and commercialize — the only condition is keeping the copyright notice (Copyright © 2026 Xue Ze). Keep the author/repo info from the About page when redistributing.
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) (0.2.3: exit diagnostics as a standalone page + four table modules + real geo pipeline + search/filter/group/copy/retry + state & snapshot-identity fixes + full README/screenshot redo).
+[MIT](LICENSE). Free to use, modify, distribute and sell, provided the copyright notice is kept (Copyright © 2026 Xue Ze / 薛泽). When redistributing, keep the author and repository info in the About screen as well.
 
 ---
 
 <div align="center">
 
-**Wang Jian · IP Insight** — see your exit IP clearly, every time.
+**IP Insight · 网鉴** — every egress IP, finally legible.
 
-Copyright © 2026 [Xue Ze](https://github.com/xueze-ai) · MIT License
+Copyright © 2026 [Xue Ze（薛泽）](https://github.com/xueze-ai)
 
 </div>
