@@ -88,7 +88,7 @@ certutil -hashfile IP-Insight-0.3.1-Setup.exe SHA256
 ## 升级说明
 
 - 覆盖安装即可，设置与历史记录保留在原 `%AppData%/IP-Insight/` 目录；
-- 0.2.x 的指纹基线与 0.3.1 兼容，首次打开会重建一次对比基线；
+- 「网站眼里的你」的指纹基线写在浏览器 localStorage 里，键名 `ipinsight.whoami.lastFingerprint.v1`；0.3.1 是首次引入，所以第一次打开没有历史基线，会标「本机第一次记录」；
 - 无破坏性数据迁移。
 
 ## 致谢
