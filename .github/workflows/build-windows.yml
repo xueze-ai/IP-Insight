@@ -41,6 +41,7 @@ jobs:
           name: IP-Insight-windows
           path: |
             release/*.exe
+            release/*.exe.blockmap
             release/*.zip
             release/SHA256SUMS.txt
             release/latest.yml
@@ -53,6 +54,7 @@ jobs:
           draft: true
           files: |
             release/IP-Insight-*-Setup.exe
+            release/IP-Insight-*-Setup.exe.blockmap
             release/IP-Insight-Portable.zip
             release/latest.yml
             release/SHA256SUMS.txt

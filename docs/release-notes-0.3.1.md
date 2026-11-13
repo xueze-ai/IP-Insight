@@ -65,8 +65,8 @@ DNS 泄漏、往返延迟、连接指纹、时区 / 语言与 IP、WebRTC、机�
 
 | 文件 | 大小 | SHA-256 |
 | --- | --- | --- |
-| `IP-Insight-0.3.1-Setup.exe` | 115.4 MB | `2a276efa0ded74630b2aa971b036021a868236393b43bfd34f9b0eac110a7752` |
-| `IP-Insight-Portable.zip` | 156.4 MB | `ac95cede941b64e75c24922dec28a20a6290a748fd9533a7f4441126d5308b46` |
+| `IP-Insight-0.3.1-Setup.exe` | 115.4 MB | `9509ceb664e6ea806d7cd85554a7b7e2f705305116eda01043aeb294df892f08` |
+| `IP-Insight-Portable.zip` | 156.4 MB | `53bb63d2bde4523e95c50b020288c6d1e6882e6a83c69dab4dd33707609b6d61` |
 
 校验：
 
